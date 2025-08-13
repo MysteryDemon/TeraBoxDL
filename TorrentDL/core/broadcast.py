@@ -6,8 +6,8 @@ import pytz
 import re
 from datetime import datetime
 from pyrogram.errors import UserNotParticipant, FloodWait
-from TeraBoxDownloader import Var
-from TeraBoxDownloader.core.database import db
+from TorrentDL import Var
+from TorrentDL.core.database import db
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, InputMediaPhoto
 
 lock = asyncio.Lock()
