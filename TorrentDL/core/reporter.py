@@ -1,6 +1,6 @@
 from time import sleep
 from pyrogram.errors import FloodWait
-from TeraBoxDownloader import Var, LOGS, bot
+from TorrentDL import Var, LOGS, bot
 
 class Reporter:
     def __init__(self, client, chat_id, log):
