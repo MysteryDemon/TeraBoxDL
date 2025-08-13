@@ -2,8 +2,8 @@ import asyncio
 import datetime
 from pyrogram import Client
 from pyrogram.types import Message
-from TeraBoxDownloader import bot, Var
-from TeraBoxDownloader.core.database import db
+from TorrentDL import bot, Var
+from TorrentDL.core.database import db
 
 async def handle_user_status(bot, cmd):
     chat_id = cmd.from_user.id
