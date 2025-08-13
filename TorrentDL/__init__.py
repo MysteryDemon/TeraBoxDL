@@ -26,9 +26,6 @@ active_downloads = {}
 last_upload_update = {}
 last_upload_update = {}
 last_upload_progress = {}
-user_folder_selections = {}
-folder_processing = False 
-folder_processing_lock = asyncio.Lock()
 last_upload_speed = {}
 lock = asyncio.Lock()
 download_lock = asyncio.Lock()
@@ -37,10 +34,9 @@ UPDATE_INTERVAL = 5
 MIN_PROGRESS_STEP = 15 
 SPLIT_SIZE = 2 * 1024 * 1024 * 1024
 BUTTONS_PER_PAGE = 12
-__version__ = "1.0"
+__version__ = "2.33"
 StartTime = time()
-resolver = TrueLinkResolver()
-load_dotenv('terabox.env')
+load_dotenv('torrentdl.env')
 
 VALID_DOMAINS = [
     'terabox.com', 'nephobox.com', '4funbox.com', 'mirrobox.com', 
