@@ -17,7 +17,7 @@ from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import InlineKeyboardButton
 from pyrogram.errors import MessageNotModified, FloodWait, UserNotParticipant, ReplyMarkupInvalid, MessageIdInvalid
 
-from TeraBoxDownloader import bot, bot_loop, LOGS, Var
+from TorrentDL import bot, bot_loop, LOGS, Var
 from .reporter import rep
 
 def handle_logs(func):
