@@ -1,5 +1,5 @@
-from TeraBoxDownloader.core.database import db
-from TeraBoxDownloader import Var
+from TorrentDL.core.database import db
+from TorrentDL import Var
 from pyrogram import Client
 from pyrogram.types import Message
 
