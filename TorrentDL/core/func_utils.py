@@ -87,39 +87,6 @@ async def editMessage(msg, text, buttons=None, get_error=False, **kwargs):
         if get_error:
             raise e
         return str(e)
-
-async def is_fsubbed(uid):
-    if len(Var.FSUB_CHATS) == 0:
-        return True
-    for chat_id in Var.FSUB_CHATS:
-        try:
-            member = await bot.get_chat_member(chat_id=chat_id, user_id=uid)
-        except UserNotParticipant:
-            return False
-        except Exception as err:
-            await rep.report(format_exc(), "warning")
-            continue
-    return True
-        
-async def get_fsubs(uid, txtargs):
-    txt = "<blockquote><b>Please Join Following Channels to Use this Bot!</b></blockquote>\n\n"
-    btns = []
-    fsub_pic = Var.START_PHOTO
-    for no, chat in enumerate(Var.FSUB_CHATS, start=1):
-        try:
-            cha = await bot.get_chat(chat)
-            member = await bot.get_chat_member(chat_id=chat, user_id=uid)
-            sta = "Joined ✅️"
-        except UserNotParticipant:
-            sta = "Not Joined ❌️"
-            inv = await bot.create_chat_invite_link(chat_id=chat)
-            btns.append([InlineKeyboardButton(cha.title, url=inv.invite_link)])
-        except Exception as err:
-            await rep.report(format_exc(), "warning")
-            continue
-        txt += f"<b>{no}. Title :</b> <i>{cha.title}</i>\n  <b>Status :</b> <i>{sta}</i>\n\n"
-    if len(txtargs) > 1:
-        return txt, btns, fsub_pic
         
 async def generate_buttons():
     btns = []
