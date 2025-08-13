@@ -13,10 +13,9 @@ from asyncio import get_event_loop, gather
 from pyrogram import Client, idle
 from pyrogram.types import BotCommand
 from pyrogram.filters import command, user, private
-from TeraBoxDownloader import bot, Var, LOGS, bot_loop, scheduler, folder_task_queue, folder_processing
-from TeraBoxDownloader.helper.utils import is_aria2_running, start_aria2
-from TeraBoxDownloader.modules.fsub import load_channels 
-from TeraBoxDownloader.core.func_utils import new_task, editMessage
+from TorrentDL import bot, Var, LOGS, bot_loop, scheduler, folder_task_queue, folder_processing
+from TorrentDL.helper.utils import is_aria2_running, start_aria2
+from TorrentDL.core.func_utils import new_task, editMessage
 from asyncio import create_task, create_subprocess_exec, create_subprocess_shell, run as asyrun, all_tasks, gather, sleep as asleep
 
 from pyrogram import utils as pyroutils
@@ -47,14 +46,8 @@ async def main():
             BotCommand("start", "Check Bot Alive Status !"),
             BotCommand("folder", "Download TeraBox Folder Links.. !"),
             BotCommand("restart", "[ADMIN] Restart Bot.. !"),
-            BotCommand("getchannels", "Check Force Sub Channels.. !"),
-            BotCommand("remchannel", "[ADMIN] Remove Force Sub Channels.. !"),
-            BotCommand("addchannel", "[ADMIN] Add Force Sub Channels.. !"),
-            BotCommand("status", "[ADMIN] Check Users.. !"),
-            BotCommand("broadcast", "[ADMIN] Broadcast Message To All Users.. !"),
         ])
         await restart()
-        await load_channels()
         LOGS.info(r"""
         
 ███╗   ███╗██╗   ██╗███████╗████████╗███████╗██████╗ ██╗   ██╗    ██████╗ ███████╗███╗   ███╗ ██████╗ ███╗   ██╗
