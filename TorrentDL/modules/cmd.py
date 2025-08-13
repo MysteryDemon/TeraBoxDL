@@ -10,8 +10,7 @@ from pyrogram import Client, filters
 from urllib.parse import urlparse
 from pyrogram import __version__ as pyroversion
 from truelink import TrueLinkResolver
-from TorrentDL import bot, Var, __version__, StartTime, LOGS, BUTTONS_PER_PAGE, VALID_DOMAINS, resolver, aria2, active_downloads, folder_processing_lock, user_folder_selections, folder_processing, folder_task_queue, download_lock, lock
-from TorrentDL.core.database import db
+from TorrentDL import bot, Var, __version__, StartTime, LOGS, BUTTONS_PER_PAGE, VALID_DOMAINS, resolver, aria2, active_downloads, download_lock, lock
 from torrentdl import script
 from TorrentDL.core.func_utils import editMessage, sendMessage, new_task, is_valid_url, generate_buttons
 from TorrentDL.helper.utils import wait_for_download, add_download, handle_download_and_send
