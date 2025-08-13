@@ -1,7 +1,6 @@
 import aria2p
 import asyncio
 from time import time
-from truelink import TrueLinkResolver
 from asyncio import Lock, new_event_loop, set_event_loop
 from os import path as ospath, mkdir, system, getenv
 from logging import INFO, ERROR, FileHandler, StreamHandler, basicConfig, getLogger
