@@ -1,7 +1,7 @@
 import datetime
 import motor.motor_asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
-from TeraBoxDownloader import Var
+from TorrentDL import Var
 
 class MongoDB:
     def __init__(self, uri, database_name):
