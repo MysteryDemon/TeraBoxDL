@@ -134,7 +134,7 @@ async def download_task(url, message, LOGS, download_semaphore):
 @new_task
 async def download_handler(_, message: Message):
     urls = message.text.strip().split() 
-    tasks = [create_task(download_task(url, message, LOGS)) for url in urls]
+    tasks = [create_task(download_task(url, message, LOGS, download_semaphore)) for url in urls]
     await gather(*tasks)
         
 @bot.on_message(filters.regex(r"^/c_[a-fA-F0-9]+$"))
