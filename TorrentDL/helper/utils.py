@@ -103,7 +103,7 @@ def add_download(url: str, output_path: str = None, headers: dict = None, use_cl
         urllib.request.urlretrieve(url, temp_torrent)
         download = aria2.add_torrent(temp_torrent, options=options)
         if download.files:
-            metadata_name = get_torrent_metadata_name(torrent_file)
+            metadata_name = get_torrent_metadata_name(temp_torrent)
             if use_clean_name:
                 options["out"] = clean_torrent_name(metadata_name)
             else:
@@ -118,7 +118,7 @@ def add_download(url: str, output_path: str = None, headers: dict = None, use_cl
             return None
         download = aria2.add_torrent(temp_torrent, options=options)
         if download.files:
-            metadata_name = get_torrent_metadata_name(torrent_file)
+            metadata_name = get_torrent_metadata_name(temp_torrent)
             if use_clean_name:
                 options["out"] = clean_torrent_name(metadata_name)
             else:
