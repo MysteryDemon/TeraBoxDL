@@ -58,14 +58,11 @@ def start_aria2():
     else:
         LOGS.info("ℹ️ aria2c is already running.")
 
-def add_download(url: str, output_dir: str, headers: dict = None):
-    os.makedirs(output_dir, exist_ok=True)
-    if url.startswith("http"):
-        filename = os.path.basename(url.split("?")[0]) or generate_download_id()
-    else:
-        filename = None
+def add_download(url: str, output_path: str, headers: dict = None):
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     options = {
-        "dir": output_dir,
+        "dir": os.path.dirname(output_path),
+        "out": os.path.basename(output_path),
         "split": "16",
         "max-connection-per-server": "16",
         "min-split-size": "1M",
@@ -73,12 +70,10 @@ def add_download(url: str, output_dir: str, headers: dict = None):
         "auto-file-renaming": "false",
         "allow-overwrite": "true",
     }
-    if filename:
-        options["out"] = filename
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
     download = aria2.add_uris([url], options=options)
-    LOGS.info(f"Added to aria2: {url} -> {output_dir}")
+    LOGS.info(f"Added to aria2: {output_path}")
     return download
 
 async def wait_for_download(download):
