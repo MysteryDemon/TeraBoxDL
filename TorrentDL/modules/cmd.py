@@ -117,20 +117,15 @@ async def mediainfo(client, message):
     else:
         return await srm(client, message, help_msg)
 
-async def download_task(url, message, LOGS):
-    parsed_url = urlparse(url)
-    filename = os.path.basename(parsed_url.path) or "output.file"
-    output_path = os.path.abspath(os.path.join(Var.DOWNLOAD_DIR, filename))
+async def download_task(url, message, LOGS, download_semaphore):
+    output_path = os.path.abspath(Var.DOWNLOAD_DIR)
     async with download_semaphore: 
-        waiting_msg = await message.reply(f"<b>Downloading:</b> {filename}")
         try:
             download = add_download(url, output_path, headers=None)
             await handle_download_and_send(message, download, message.from_user.id, LOGS)
         except Exception as e:
             LOGS.exception(f"❌ Error processing {url}: {e}")
             await message.reply(f"❌ Error: {e}")
-        finally:
-            await waiting_msg.delete()
 
 @bot.on_message(
     filters.regex(r"(https?://\S+|magnet:\?xt=urn:btih:[a-fA-F0-9]+)") &
@@ -148,12 +143,11 @@ async def cancel_download(client, message: Message):
     cmd = message.text.strip()
     download_id = cmd[3:]
     download_data = active_downloads.get(download_id)
-    
     if download_data:
         download = download_data.get("download")
         status_message = download_data.get("status_message")
         try:
-            download.remove(force=True)  # Cancel the download
+            download.remove(force=True)
             cancel_message = await message.reply("🛑 Download canceled!")
             await cancel_message.delete()
             if status_message:
