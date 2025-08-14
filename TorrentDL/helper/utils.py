@@ -309,3 +309,29 @@ async def upload_progress(current, total, status_message, file_name, user_name, 
             last_upload_progress[upload_id] = progress
         except Exception as e:
             LOGS.error(f"Failed to update upload status message: {e}")
+
+async def download_torrents(url, output_dir, message):
+    cmd = [
+        "aria2c",
+        url,
+        "--dir", output_dir,
+        "--max-connection-per-server=16",
+        "--min-split-size=1M",
+        "--split=16",
+        "--allow-overwrite=true",
+        "--enable-http-pipelining=true"
+    ]
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    await message.reply_text(f"<b>Started aria2c for torrent/magnet: {url}</b>")
+    # Optionally stream logs
+    while True:
+        output = process.stdout.readline()
+        if output == b'' and process.poll() is not None:
+            break
+        if output:
+            text = output.decode().strip()
+            if text:
+                await message.reply_text(f"<code>{text}</code>")
+        await asyncio.sleep(0.5)
+    rc = process.poll()
+    return rc
