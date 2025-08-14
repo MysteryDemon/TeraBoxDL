@@ -91,6 +91,38 @@ async def set_cb(client, query: CallbackQuery):
             user_id=query.from_user.id),
             reply_markup=InlineKeyboardMarkup(await generate_buttons()))
 
+@bot.on_message(filters.command(["mi", "media_info"]))
+async def mediainfo(client, message):
+    rply = message.reply_to_message
+    help_msg = "<b>By replying to media:</b>"
+    help_msg += f"\n<code>/mi or /media_info" + " {media}" + "</code>"
+    help_msg += "\n\n<b>By reply/sending download link:</b>"
+    help_msg += f"\n<code>/mi or /media_info" + " {link}" + "</code>"
+    if len(message.command) > 1 or rply and rply.text:
+        link = rply.text if rply else message.command[1]
+        return await gen_mediainfo(client, message, link)
+    elif rply:
+        if file := next(
+            (
+                i
+                for i in [
+                    rply.document,
+                    rply.video,
+                    rply.audio,
+                    rply.voice,
+                    rply.animation,
+                    rply.video_note,
+                ]
+                if i is not None
+            ),
+            None,
+        ):
+            return await gen_mediainfo(client, message, None, file, rply)
+        else:
+            return await srm(client, message, help_msg)
+    else:
+        return await srm(client, message, help_msg)
+
 @bot.on_message(
     filters.regex(r"(https?://\S+|magnet:\?xt=urn:btih:[a-fA-F0-9]+)") &
     ~filters.command(["start", "log"])
