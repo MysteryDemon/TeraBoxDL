@@ -73,7 +73,7 @@ def clean_torrent_name(raw_name):
     name_no_ext = re.sub(r'\.[^.]+$', '', raw_name)
     name_cleaned = name_no_ext.replace('.', ' ')
     group_match = re.search(r'\b(CR|WEB-DL|BluRay|HDRip|HDTV|AMZN|HIDI|ADN|NF|CTHP|DSNP)\b', name_cleaned, re.IGNORECASE)
-    group_tag = f"[{group_match.group(1).upper()}]" if group_match else ""
+    group_tag = f"[{group_match.group(1).upper()}]" if group_match else "[ANI-DL]"
     ep_match = re.search(r'\b(S\d{1,2}E\d{1,2})\b', name_cleaned, re.IGNORECASE)
     ep_tag = ep_match.group(1) if ep_match else ""
     res_match = re.search(r'\b(\d{3,4}p)\b', name_cleaned)
