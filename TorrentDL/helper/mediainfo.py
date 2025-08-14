@@ -13,12 +13,76 @@ from pyrogram import Client, filters, enums
 from TorrentDL import bot
 from TorrentDL import LOGS as LOGGER
 
+telegraph = TelegraphHelper()
+
+class TelegraphHelper:
+    def __init__(self):
+        self.telegraph = Telegraph(domain='graph.org')
+        self.short_name = ''.join(SystemRandom().choices(ascii_letters, k=8))
+        self.access_token = None
+        self.author_name = "MysteryDemon"
+        self.author_url = "https://github.com/MysteryDemon"
+
+    async def create_account(self):
+        await self.telegraph.create_account(
+            short_name=self.short_name,
+            author_name=self.author_name,
+            author_url=self.author_url
+        )
+        self.access_token = self.telegraph.get_access_token()
+        LOGGER.info(f"Telegraph Account Generated : {self.short_name}")
+
+    async def create_page(self, title, content):
+        try:
+            return await self.telegraph.create_page(
+                title=title,
+                author_name=self.author_name,
+                author_url=self.author_url,
+                html_content=content
+            )
+        except RetryAfterError as st:
+            LOGGER.warning(f'Telegraph Flood control exceeded. I will sleep for {st.retry_after} seconds.')
+            await sleep(st.retry_after)
+            return await self.create_page(title, content)
+
+    async def edit_page(self, path, title, content):
+        try:
+            return await self.telegraph.edit_page(
+                path=path,
+                title=title,
+                author_name=self.author_name,
+                author_url=self.author_url,
+                html_content=content
+            )
+        except RetryAfterError as st:
+            LOGGER.warning(f'Telegraph Flood control exceeded. I will sleep for {st.retry_after} seconds.')
+            await sleep(st.retry_after)
+            return await self.edit_page(path, title, content)
+
+    async def edit_telegraph(self, path, telegraph_content):
+        nxt_page = 1
+        prev_page = 0
+        num_of_path = len(path)
+        for content in telegraph_content:
+            if nxt_page == 1:
+                content += f'<b><a href="https://telegra.ph/{path[nxt_page]}">Next</a></b>'
+                nxt_page += 1
+            else:
+                if prev_page <= num_of_path:
+                    content += f'<b><a href="https://telegra.ph/{path[prev_page]}">Prev</a></b>'
+                    prev_page += 1
+                if nxt_page < num_of_path:
+                    content += f'<b> | <a href="https://telegra.ph/{path[nxt_page]}">Next</a></b>'
+                    nxt_page += 1
+            await self.edit_page(
+                path=path[prev_page],
+                title=f"{config_dict['TITLE_NAME']} Torrent Search",
+                content=content
+            )
+        return
+
 async def gen_mediainfo(client, message, link=None, media=None, mmsg=None):
-    temp_send = await client.send_message(chat_id=message.chat.id,
-                                          text='<b>Generating MediaInfo...</b>',
-                                          reply_to_message_id=message.id,
-                                          disable_web_page_preview=False
-                                         )
+    temp_send = await client.send_message(chat_id=message.chat.id, text='<b>Generating MediaInfo...</b>', reply_to_message_id=message.id, disable_web_page_preview=False)
     try:
         path = "Mediainfo/"
         if not await aiopath.isdir(path):
@@ -52,7 +116,6 @@ async def gen_mediainfo(client, message, link=None, media=None, mmsg=None):
         await aioremove(des_path)
     link_id = (await telegraph.create_page(title='MediaInfo X', content=tc))["path"]
     await temp_send.edit(f"<b>MediaInfo:</b>\n\n➲ <b>Link :</b> https://graph.org/{link_id}", disable_web_page_preview=False)
-
 
 section_dict = {'General': '🗒', 'Video': '🎞', 'Audio': '🔊', 'Text': '🔠', 'Menu': '🗃'}
 def parseinfo(out):
@@ -115,80 +178,3 @@ async def srm(c, m, text, photo=None, video=None, markup=None, reply_id=None, de
    return my
  except:
    LOGGER.error('srm', exc_info=True)
-
-from string import ascii_letters
-from random import SystemRandom
-from asyncio import sleep
-from telegraph.aio import Telegraph
-from telegraph.exceptions import RetryAfterError
-from TorrentDL import bot_loop
-
-class TelegraphHelper:
-    def __init__(self):
-        self.telegraph = Telegraph(domain='graph.org')
-        self.short_name = ''.join(SystemRandom().choices(ascii_letters, k=8))
-        self.access_token = None
-        self.author_name = "mean"
-        self.author_url = "https://av1encodes.com"
-
-    async def create_account(self):
-        await self.telegraph.create_account(
-            short_name=self.short_name,
-            author_name=self.author_name,
-            author_url=self.author_url
-        )
-        self.access_token = self.telegraph.get_access_token()
-        LOGGER.info(f"Telegraph Account Generated : {self.short_name}")
-
-    async def create_page(self, title, content):
-        try:
-            return await self.telegraph.create_page(
-                title=title,
-                author_name=self.author_name,
-                author_url=self.author_url,
-                html_content=content
-            )
-        except RetryAfterError as st:
-            LOGGER.warning(f'Telegraph Flood control exceeded. I will sleep for {st.retry_after} seconds.')
-            await sleep(st.retry_after)
-            return await self.create_page(title, content)
-
-    async def edit_page(self, path, title, content):
-        try:
-            return await self.telegraph.edit_page(
-                path=path,
-                title=title,
-                author_name=self.author_name,
-                author_url=self.author_url,
-                html_content=content
-            )
-        except RetryAfterError as st:
-            LOGGER.warning(f'Telegraph Flood control exceeded. I will sleep for {st.retry_after} seconds.')
-            await sleep(st.retry_after)
-            return await self.edit_page(path, title, content)
-
-    async def edit_telegraph(self, path, telegraph_content):
-        nxt_page = 1
-        prev_page = 0
-        num_of_path = len(path)
-        for content in telegraph_content:
-            if nxt_page == 1:
-                content += f'<b><a href="https://telegra.ph/{path[nxt_page]}">Next</a></b>'
-                nxt_page += 1
-            else:
-                if prev_page <= num_of_path:
-                    content += f'<b><a href="https://telegra.ph/{path[prev_page]}">Prev</a></b>'
-                    prev_page += 1
-                if nxt_page < num_of_path:
-                    content += f'<b> | <a href="https://telegra.ph/{path[nxt_page]}">Next</a></b>'
-                    nxt_page += 1
-            await self.edit_page(
-                path=path[prev_page],
-                title=f"{config_dict['TITLE_NAME']} Torrent Search",
-                content=content
-            )
-        return
-
-
-telegraph = TelegraphHelper()
-     
