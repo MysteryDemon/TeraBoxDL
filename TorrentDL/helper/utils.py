@@ -86,15 +86,11 @@ def clean_torrent_name(raw_name):
     cleaned_name = " ".join(part for part in [group_tag, series_name, ep_tag, res_tag, dual_tag] if part)
     return cleaned_name
 
-
-torrent_metadata_map = {}
-
-def add_download(url: str, output_path: str = None, headers: dict = None, use_clean_name: bool = True):
-    save_dir = os.path.dirname(output_path) if output_path else "/downloads"
-    os.makedirs(save_dir, exist_ok=True)
-
+def add_download(url: str, output_path: str, headers: dict = None):
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     options = {
-        "dir": save_dir,
+        "dir": os.path.dirname(output_path),
+        "out": os.path.basename(output_path),
         "split": "16",
         "max-connection-per-server": "16",
         "min-split-size": "1M",
@@ -104,43 +100,29 @@ def add_download(url: str, output_path: str = None, headers: dict = None, use_cl
         "seed-time": "0",
         "max-upload-limit": "0",
     }
-
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
-    try:
-        if url.lower().endswith(".torrent"):
-            temp_torrent = os.path.join("/tmp", os.path.basename(url))
-            LOGS.info(f"Downloading .torrent file to {temp_torrent}...")
-            urllib.request.urlretrieve(url, temp_torrent)
-            metadata_name = get_torrent_metadata_name(temp_torrent)
-            if use_clean_name:
-                metadata_name = clean_torrent_name(metadata_name)
-            options["out"] = metadata_name
-            download = aria2.add_torrent(temp_torrent, options=options)
-            torrent_metadata_map[download.gid] = metadata_name
-            LOGS.info(f"Added torrent download: {metadata_name}")
-            if os.path.exists(temp_torrent):
-                os.remove(temp_torrent)
-        elif url.startswith("magnet:"):
-            temp_torrent = os.path.join("/tmp", f"{generate_download_id()}.torrent")
-            temp_torrent = magnet_to_torrent(url, temp_torrent)
-            if temp_torrent is None:
-                LOGS.error(f"Failed to convert magnet to torrent: {url}")
-                return None
-            metadata_name = get_torrent_metadata_name(temp_torrent)
-            if use_clean_name:
-                metadata_name = clean_torrent_name(metadata_name)
-            options["out"] = metadata_name
-            download = aria2.add_torrent(temp_torrent, options=options)
-            torrent_metadata_map[download.gid] = metadata_name
-            LOGS.info(f"Added magnet download: {metadata_name}")
-            if os.path.exists(temp_torrent):
-                os.remove(temp_torrent)
-        else:
-            if output_path:
-                options["out"] = os.path.basename(output_path)
-            download = aria2.add_uris([url], options=options)
-            LOGS.info(f"Added direct download: {options.get('out', url)}")
+    if url.lower().endswith(".torrent"):
+        temp_torrent = os.path.join("/tmp", os.path.basename(url))
+        LOGS.info(f"Downloading .torrent file to {temp_torrent}...")
+        urllib.request.urlretrieve(url, temp_torrent)
+        download = aria2.add_torrent(temp_torrent, options=options)
+        LOGS.info(f"Added torrent download: {output_path}")
+        os.remove(temp_torrent)
+    elif url.startswith("magnet:"):
+        temp_torrent = os.path.join("/tmp", f"{generate_download_id()}.torrent")
+        temp_torrent = magnet_to_torrent(url, temp_torrent)
+        if temp_torrent is None:
+            LOGS.error(f"Failed to convert magnet to torrent: {url}")
+            return None
+        download = aria2.add_torrent(temp_torrent, options=options)
+        LOGS.info(f"Added magnet-as-torrent download: {output_path}")
+        os.remove(temp_torrent)
+    else:
+        download = aria2.add_uris([url], options=options)
+        LOGS.info(f"Added direct download: {output_path}")
+
+    return download
 
 def magnet_to_torrent(magnet_uri: str, save_path: str, timeout: int = 60):
     ses = lt.session()
@@ -398,27 +380,3 @@ async def upload_progress(current, total, status_message, file_name, user_name, 
             last_upload_progress[upload_id] = progress
         except Exception as e:
             LOGS.error(f"Failed to update upload status message: {e}")
-
-
-
-import time
-import shutil
-
-def rename_when_complete(download, desired_name):
-    while True:
-        download.update()  # Refresh status from aria2
-        if download.is_complete:  # Download finished
-            break
-        if download.is_error:  # Something went wrong
-            LOGS.error(f"Download {download.gid} failed, cannot rename.")
-            return
-        time.sleep(2)  # Wait 2 seconds before checking again
-
-    # Rename the main file
-    if download.files:
-        file_path = download.files[0].path
-        new_path = os.path.join(os.path.dirname(file_path), desired_name)
-        if os.path.exists(file_path):
-            shutil.move(file_path, new_path)
-            LOGS.info(f"Renamed download to: {new_path}")
-
