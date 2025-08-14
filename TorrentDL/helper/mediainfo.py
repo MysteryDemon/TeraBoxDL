@@ -9,7 +9,6 @@ from pyrogram.filters import command
 from pyrogram import Client, filters, enums
 from TorrentDL import bot
 from TorrentDL import LOGS as LOGGER
-from helpers.telegraph_helper import telegraph
 
 async def gen_mediainfo(client, message, link=None, media=None, mmsg=None):
     temp_send = await client.send_message(chat_id=message.chat.id,
@@ -71,39 +70,6 @@ def parseinfo(out):
             tc += line + '\n'
     tc += '</pre><br>'
     return tc
-
-@bot.on_message(filters.command(["mi", "media_info"]))
-async def mediainfo(client, message):
-    rply = message.reply_to_message
-    help_msg = "<b>By replying to media:</b>"
-    help_msg += f"\n<code>/mi or /media_info" + " {media}" + "</code>"
-    help_msg += "\n\n<b>By reply/sending download link:</b>"
-    help_msg += f"\n<code>/mi or /media_info" + " {link}" + "</code>"
-    if len(message.command) > 1 or rply and rply.text:
-        link = rply.text if rply else message.command[1]
-        return await gen_mediainfo(client, message, link)
-    elif rply:
-        if file := next(
-            (
-                i
-                for i in [
-                    rply.document,
-                    rply.video,
-                    rply.audio,
-                    rply.voice,
-                    rply.animation,
-                    rply.video_note,
-                ]
-                if i is not None
-            ),
-            None,
-        ):
-            return await gen_mediainfo(client, message, None, file, rply)
-        else:
-            return await srm(client, message, help_msg)
-    else:
-        return await srm(client, message, help_msg)
-
 
 async def cmd_exec(cmd, shell=False):
     if shell:
