@@ -35,7 +35,7 @@ def stream_aria2_logs(process):
 def generate_download_id():
     return uuid.uuid4().hex[:16]
 
-def get_metadata_name(torrent_path):
+def get_torrent_metadata_name(torrent_path):
     download = aria2.add_torrent(torrent_path, options={"pause": "true"})
     while not download.is_metadata:
         time.sleep(0.2)
