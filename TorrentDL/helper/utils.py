@@ -61,15 +61,7 @@ def start_aria2():
         LOGS.info("ℹ️ aria2c is already running.")
 
 def add_download(url: str, output_path: str, headers: dict = None):
-    """
-    Add a download to aria2. Supports:
-    - Direct file URLs
-    - Magnet links
-    - .torrent URLs
-    """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-    # Aria2 options
     options = {
         "dir": os.path.dirname(output_path),
         "out": os.path.basename(output_path),
@@ -79,8 +71,8 @@ def add_download(url: str, output_path: str, headers: dict = None):
         "enable-http-pipelining": "true",
         "auto-file-renaming": "false",
         "allow-overwrite": "true",
-        "seed-time": "0",     
-        "max-upload-limit": "0"
+        "seed-time": "0",
+        "max-upload-limit": "0",
     }
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
@@ -91,10 +83,18 @@ def add_download(url: str, output_path: str, headers: dict = None):
         download = aria2.add_torrent(temp_torrent, options=options)
         LOGS.info(f"Added torrent download: {output_path}")
         os.remove(temp_torrent)
+    elif url.startswith("magnet:"):
+        temp_torrent = os.path.join("/tmp", f"{generate_download_id()}.torrent")
+        temp_torrent = magnet_to_torrent(url, temp_torrent)
+        if temp_torrent is None:
+            LOGS.error(f"Failed to convert magnet to torrent: {url}")
+            return None
+        download = aria2.add_torrent(temp_torrent, options=options)
+        LOGS.info(f"Added magnet-as-torrent download: {output_path}")
+        os.remove(temp_torrent)
     else:
-        # Magnet link or direct URL
         download = aria2.add_uris([url], options=options)
-        LOGS.info(f"Added direct/magnet download: {output_path}")
+        LOGS.info(f"Added direct download: {output_path}")
     return download
 
 def magnet_to_torrent(magnet_uri: str, save_path: str, timeout: int = 60):
@@ -112,12 +112,10 @@ def magnet_to_torrent(magnet_uri: str, save_path: str, timeout: int = 60):
         if time.time() - start > timeout:
             LOGS.error("Timeout: Could not fetch metadata for magnet.")
             return None
-    
     torrent_info = handle.get_torrent_info()
     torrent_file_path = save_path if save_path.endswith(".torrent") else save_path + ".torrent"
     with open(torrent_file_path, "wb") as f:
         f.write(lt.bencode(lt.create_torrent(torrent_info).generate()))
-    
     LOGS.info(f"Magnet converted to torrent: {torrent_file_path}")
     ses.pause()
     return torrent_file_path
