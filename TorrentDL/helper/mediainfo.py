@@ -6,6 +6,8 @@ from shlex import split as ssplit
 from aiofiles import open as aiopen
 from aiofiles.os import remove as aioremove, path as aiopath, mkdir
 from os import path as ospath, getcwd
+from string import ascii_letters
+from random import SystemRandom
 from telegraph.aio import Telegraph
 from telegraph.exceptions import RetryAfterError
 from asyncio import create_subprocess_exec, create_subprocess_shell
