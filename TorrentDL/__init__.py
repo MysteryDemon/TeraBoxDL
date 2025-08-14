@@ -1,3 +1,4 @@
+import os
 import aria2p
 import asyncio
 from time import time
@@ -6,7 +7,8 @@ from os import path as ospath, mkdir, system, getenv
 from logging import INFO, ERROR, FileHandler, StreamHandler, basicConfig, getLogger
 from traceback import format_exc
 from asyncio import Queue, Lock
-
+from asyncio import Semaphore, create_task, gather
+from urllib.parse import urlparse
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pyrogram import Client
 from pyrogram.enums import ParseMode
@@ -24,12 +26,13 @@ LOGS = getLogger(__name__)
 
 active_downloads = {}
 last_upload_update = {}
+download_semaphore = Semaphore(5)
+download_lock = Semaphore(1)
 last_upload_update = {}
 download_metadata_names = {}
 last_upload_progress = {}
 last_upload_speed = {}
 lock = asyncio.Lock()
-download_lock = asyncio.Lock()
 UPDATE_INTERVAL = 5 
 MIN_PROGRESS_STEP = 15 
 SPLIT_SIZE = 2 * 1024 * 1024 * 1024
