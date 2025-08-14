@@ -39,11 +39,16 @@ async def restart():
             await bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=f"<i>Restarted at {datetime.now().strftime('%H:%M:%S')}</i>")
         except Exception as e:
             LOGS.error(e)
-                        
+
+async def start_queue_workers():
+    for _ in range(MAX_CONCURRENT_DOWNLOADS):
+        asyncio.create_task(queue_worker())
+                  
 async def main():
         start_aria2()
         await bot.start()
         await telegraph.create_account()
+        await start_queue_workers()
         await bot.set_bot_commands([
             BotCommand("start", "Check Bot Alive Status !"),
             BotCommand("restart", "[OWNER] Restart Bot.. !"),
