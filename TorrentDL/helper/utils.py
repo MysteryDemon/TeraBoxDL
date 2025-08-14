@@ -134,6 +134,38 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
     }
 
     # Wait until actual files appear (skip [METADATA])
+    real_files = []
+    while download.is_active:
+        if active_downloads[download_id].get("cancelled"):
+            LOGS.info(f"Download cancelled for ID: {download_id}")
+            break
+
+        try:
+            download.update()
+        except Exception as e:
+            LOGS.error(f"Error updating download: {e}")
+            break
+
+        # Filter out metadata placeholders
+        real_files = [f for f in download.files if "[METADATA]" not in str(f.path)]
+        if real_files:
+            break  # real file found, exit loop
+        await asyncio.sleep(2)
+
+    if not real_files:
+        await message.reply("❌ No actual files were downloaded yet. Torrent may have no peers.")
+        return
+
+    file_path = real_files[0].path
+    if not os.path.exists(file_path):
+        await message.reply(f"❌ File not found: {file_path}")
+        return
+
+    file_size = os.path.getsize(file_path)
+    caption = f"<b>{download.name}</b>\n"
+    ext = os.path.splitext(file_path)[1].lower()
+
+    # Continue monitoring download progress until complete
     while not download.is_complete:
         if active_downloads[download_id].get("cancelled"):
             LOGS.info(f"Download cancelled for ID: {download_id}")
@@ -145,12 +177,6 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
             LOGS.error(f"Error updating download: {e}")
             break
 
-        # Skip metadata placeholders
-        if download.files and all("[METADATA]" in str(f.path) for f in download.files):
-            await asyncio.sleep(2)
-            continue
-
-        # Calculate progress and update status message
         progress = download.progress
         elapsed_time = datetime.now() - start_time
         elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
@@ -186,33 +212,15 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
 
         await asyncio.sleep(15)
 
-    # Final update to ensure files exist
+    # Final update to ensure download is complete
     try:
         download.update()
     except Exception as e:
-        if "is not found" in str(e):
-            LOGS.info(f"Download was cancelled or removed: {download.gid}")
-            return
-        else:
-            LOGS.error(f"Error updating completed download: {e}")
-            await message.reply(f"❌ Error updating download: {e}")
-            return
-
-    # Filter out metadata placeholders
-    files = [f for f in download.files if "[METADATA]" not in str(f.path)]
-    if not files:
-        await message.reply("❌ No actual files were downloaded.")
+        LOGS.error(f"Error updating completed download: {e}")
+        await message.reply(f"❌ Error updating download: {e}")
         return
 
-    file_path = files[0].path
-    if not file_path or not os.path.exists(file_path):
-        await message.reply(f"❌ File not found: {file_path}")
-        return
-
-    file_size = os.path.getsize(file_path)
-    caption = f"<b>{download.name}</b>\n"
-    ext = os.path.splitext(file_path)[1].lower()
-
+    # Upload the file
     try:
         if ext in [".mp4", ".mkv", ".mov", ".avi"] and file_size > SPLIT_SIZE:
             split_files = await split_video_with_ffmpeg(file_path, os.path.splitext(file_path)[0], SPLIT_SIZE)
@@ -242,6 +250,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
     except Exception as e:
         LOGS.error(f"❌ Failed to send file: {e}")
         await message.reply(f"❌ Failed to send file: {e}")
+
 
 async def split_video_with_ffmpeg(input_path, output_prefix, split_size):
     try:
