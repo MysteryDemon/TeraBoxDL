@@ -121,7 +121,6 @@ def add_download(url: str, output_path: str, headers: dict = None):
     else:
         download = aria2.add_uris([url], options=options)
         LOGS.info(f"Added direct download: {output_path}")
-
     return download
 
 def magnet_to_torrent(magnet_uri: str, save_path: str, timeout: int = 60):
