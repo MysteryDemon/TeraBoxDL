@@ -12,6 +12,9 @@ import uuid
 import os
 import math
 
+def generate_download_id():
+    return uuid.uuid4().hex[:16]
+
 def is_aria2_running():
     for proc in psutil.process_iter(attrs=["name", "cmdline"]):
         try:
@@ -23,12 +26,11 @@ def is_aria2_running():
             continue
     return False
 
+
 def stream_aria2_logs(process):
     for line in process.stdout:
         LOGS.info(f"[aria2c] {line.decode().strip()}")
 
-def generate_download_id():
-    return uuid.uuid4().hex[:16]
 
 def start_aria2():
     if not is_aria2_running():
@@ -58,23 +60,67 @@ def start_aria2():
     else:
         LOGS.info("ℹ️ aria2c is already running.")
 
-def add_download(url: str, output_path: str, headers: dict = None):
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    options = {
-        "dir": os.path.dirname(output_path),
-        "out": os.path.basename(output_path),
-        "split": "16",
-        "max-connection-per-server": "16",
-        "min-split-size": "1M",
-        "enable-http-pipelining": "true",
-        "auto-file-renaming": "false",
-        "allow-overwrite": "true",
-    }
-    if headers:
-        options["header"] = [f"{k}: {v}" for k, v in headers.items()]
-    download = aria2.add_uris([url], options=options)
-    LOGS.info(f"Added to aria2: {output_path}")
+
+def add_download(source: str, output_dir: str, headers: dict = None):
+    os.makedirs(output_dir, exist_ok=True)
+    if source.startswith("magnet:"):
+        download = aria2.add_magnet(source, options={
+            "dir": output_dir,
+            "max-connection-per-server": "16",
+            "min-split-size": "1M",
+            "enable-http-pipelining": "true",
+            "auto-file-renaming": "false",
+            "allow-overwrite": "true"
+        })
+        LOGS.info(f"Magnet added: {source[:50]}...")
+
+    elif source.endswith(".torrent") and os.path.exists(source):
+        download = aria2.add_torrent(source, options={
+            "dir": output_dir,
+            "max-connection-per-server": "16",
+            "min-split-size": "1M",
+            "enable-http-pipelining": "true",
+            "auto-file-renaming": "false",
+            "allow-overwrite": "true"
+        })
+        LOGS.info(f"Local torrent added: {source}")
+
+    elif source.endswith(".torrent") and source.startswith("http"):
+        temp_path = os.path.join("/tmp", f"{uuid.uuid4().hex}.torrent")
+        LOGS.info(f"Downloading remote torrent file: {source}")
+        r = requests.get(source, stream=True)
+        r.raise_for_status()
+        with open(temp_path, "wb") as f:
+            for chunk in r.iter_content(8192):
+                f.write(chunk)
+        download = aria2.add_torrent(temp_path, options={
+            "dir": output_dir,
+            "max-connection-per-server": "16",
+            "min-split-size": "1M",
+            "enable-http-pipelining": "true",
+            "auto-file-renaming": "false",
+            "allow-overwrite": "true"
+        })
+        LOGS.info(f"Remote torrent added: {source}")
+
+    else:
+        options = {
+            "dir": output_dir,
+            "out": os.path.basename(source),
+            "split": "16",
+            "max-connection-per-server": "16",
+            "min-split-size": "1M",
+            "enable-http-pipelining": "true",
+            "auto-file-renaming": "false",
+            "allow-overwrite": "true",
+        }
+        if headers:
+            options["header"] = [f"{k}: {v}" for k, v in headers.items()]
+        download = aria2.add_uris([source], options=options)
+        LOGS.info(f"HTTP/FTP download added: {source}")
+
     return download
+
 
 async def wait_for_download(download):
     while download.is_active:
