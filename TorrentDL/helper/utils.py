@@ -106,12 +106,12 @@ async def wait_for_download(download):
 
 async def update_status_message(status_message, text):
     try:
-        # Only edit if message text is different
+        # Only edit if the text is different (prevents 400 MESSAGE_NOT_MODIFIED)
         if getattr(status_message, "text", None) == text:
-            return  # Don't update if text is the same!
+            return
         await status_message.edit_text(text)
     except Exception as e:
-        LOGS.error(f"Failed to update status message: {e}")
+        LOGS.error(f"Failed to update status message: Telegram says: {e}")
 
 def format_size(size):
     if size < 1024:
