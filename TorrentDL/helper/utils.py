@@ -212,6 +212,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
     torrent_path = None
     for f in meta_files:
         if f.path.endswith('.torrent') and os.path.exists(f.path):
+            
             torrent_path = f.path
             await message.reply_document(torrent_path, caption="Here is the .torrent file.")
 
