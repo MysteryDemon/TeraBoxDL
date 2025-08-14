@@ -197,6 +197,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
     }
     metadata_name = download_metadata_names.get(getattr(download, 'gid', None), None)
     ext = os.path.splitext(file_path)[1].lower()
+    file_path = completed.files[0].path if completed.files else None
     while not download.is_complete:
         if active_downloads[download_id].get("cancelled"):
             LOGS.info(f"Download cancelled for ID: {download_id}")
