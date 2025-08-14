@@ -126,6 +126,10 @@ from urllib.parse import urlparse
 async def download_handler(_, message: Message):
     url = message.text.strip()
     output_dir = Var.DOWNLOAD_DIR
+    if url.startswith("magnet:") or url.endswith(".torrent"):
+        await download_with_aria2c_subprocess(url, output_dir, message)
+        return
+        
     waiting_msg = await message.reply("<b>Added Link To Queue</b>")
     async with download_lock:
         try:
@@ -137,7 +141,6 @@ async def download_handler(_, message: Message):
             await message.reply(f"❌ Error: {e}")
         finally:
             await waiting_msg.delete()
-
 
 @bot.on_message(filters.regex(r"^/c_[a-fA-F0-9]+$"))
 @new_task
