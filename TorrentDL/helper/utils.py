@@ -11,6 +11,7 @@ import aria2p
 import psutil
 import time
 import uuid
+import re
 import os
 import math
 
@@ -60,11 +61,23 @@ def start_aria2():
     else:
         LOGS.info("ℹ️ aria2c is already running.")
 
-def add_download(url: str, output_path: str, headers: dict = None):
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+def clean_torrent_name(raw_name):
+    group_match = re.search(r'\b(CR|WEB-DL|BluRay|HDRip|HDTV|AMZN|HIDI|ADN|NF|CTHP|DSNP|)\b', raw_name, re.IGNORECASE)
+    group_tag = f"[{group_match.group(1).upper()}]" if group_match else ""
+    ep_match = re.search(r'\b(S\d{1,2}E\d{1,2})\b', raw_name, re.IGNORECASE)
+    ep_tag = ep_match.group(1) if ep_match else ""
+    res_match = re.search(r'\b(\d{3,4}p)\b', raw_name)
+    res_tag = f"[{res_match.group(1)}]" if res_match else ""
+    dual_tag = "[DUAL]" if re.search(r'\bDUAL\b', raw_name, re.IGNORECASE) else ""
+    series_match = re.search(rf'^(.*?)\s*{ep_tag}', raw_name)
+    series_name = series_match.group(1).strip() if series_match else ""
+    cleaned_name = " ".join(part for part in [group_tag, series_name, ep_tag, res_tag, dual_tag] if part)
+    return cleaned_name
+
+def add_download(url: str, output_path: str = None, headers: dict = None, use_clean_name: bool = True):
+    os.makedirs(os.path.dirname(output_path) if output_path else "/downloads", exist_ok=True)
     options = {
-        "dir": os.path.dirname(output_path),
-        "out": os.path.basename(output_path),
+        "dir": os.path.dirname(output_path) if output_path else "/downloads",
         "split": "16",
         "max-connection-per-server": "16",
         "min-split-size": "1M",
@@ -81,7 +94,13 @@ def add_download(url: str, output_path: str, headers: dict = None):
         LOGS.info(f"Downloading .torrent file to {temp_torrent}...")
         urllib.request.urlretrieve(url, temp_torrent)
         download = aria2.add_torrent(temp_torrent, options=options)
-        LOGS.info(f"Added torrent download: {output_path}")
+        if download.files:
+            metadata_name = download.files[0].name
+            if use_clean_name:
+                options["out"] = clean_torrent_name(metadata_name)
+            else:
+                options["out"] = metadata_name
+        LOGS.info(f"Added torrent download: {options.get('out', output_path)}")
         os.remove(temp_torrent)
     elif url.startswith("magnet:"):
         temp_torrent = os.path.join("/tmp", f"{generate_download_id()}.torrent")
@@ -90,6 +109,12 @@ def add_download(url: str, output_path: str, headers: dict = None):
             LOGS.error(f"Failed to convert magnet to torrent: {url}")
             return None
         download = aria2.add_torrent(temp_torrent, options=options)
+        if download.files:
+            metadata_name = download.files[0].name
+            if use_clean_name:
+                options["out"] = clean_torrent_name(metadata_name)
+            else:
+                options["out"] = metadata_name
         os.remove(temp_torrent)
     else:
         download = aria2.add_uris([url], options=options)
