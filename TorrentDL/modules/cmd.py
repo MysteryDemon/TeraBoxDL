@@ -65,13 +65,11 @@ async def _log(client, message: Message):
     except FileNotFoundError:
         await sendMessage(message, "<b>No log file found.</b>")
 
-@bot.on_callback_query(filters.regex("^(about|help|mysteryknull|gotohome)$"))
+@bot.on_callback_query(filters.regex("^(about|help|gotohome)$"))
 @new_task
 async def set_cb(client, query: CallbackQuery):
-    data = query.data
-    if query.data == "mysteryknull":
-        await query.answer("Admins Only !!!", show_alert=True)  
-    elif data == "about":
+    data = query.data 
+    if data == "about":
         await query.message.edit_text(
             text=script.ABOUT_TXT,
             reply_markup=InlineKeyboardMarkup([
