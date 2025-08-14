@@ -139,9 +139,6 @@ def add_download(url: str, output_path: str = None, headers: dict = None, use_cl
             LOGS.info(f"Added direct download: {options.get('out', url)}")
 
 
-
-import time
-
 def rename_when_complete(download):
     try:
         # Poll aria2 until the download is complete
