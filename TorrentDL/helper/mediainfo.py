@@ -1,3 +1,5 @@
+import asyncio
+from asyncio.subprocess import PIPE
 from aiohttp import ClientSession
 from re import search as re_search
 from shlex import split as ssplit
