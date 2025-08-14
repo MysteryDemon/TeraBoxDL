@@ -71,11 +71,17 @@ def add_download(url: str, output_path: str, headers: dict = None):
         "enable-http-pipelining": "true",
         "auto-file-renaming": "false",
         "allow-overwrite": "true",
+        "follow-torrent": "mem",
+        "bt-save-metadata": "false",
+        "bt-enable-lpd": "true",
+        "bt-seed-unverified": "true"
     }
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
-    if url.startswith("magnet:") or url.lower().endswith(".torrent"):
-        download = aria2.add_magnet(url, options=options) if url.startswith("magnet:") else aria2.add_torrent(url, options=options)
+    if url.startswith("magnet:"):
+        download = aria2.add_magnet(url, options=options)
+    elif url.lower().endswith(".torrent"):
+        download = aria2.add_torrent(url, options=options)
     else:
         download = aria2.add_uris([url], options=options)
     LOGS.info(f"Added to aria2: {output_path}")
