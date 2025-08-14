@@ -239,7 +239,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         await message.reply(f"❌ File not found: {file_path}")
         return
 
-    file_paths = [f.path for f in completed.files] if completed.files else []
+    file_paths = [str(f.path) for f in completed.files] if completed.files else []
     if not file_paths:
         await message.reply(f"❌ No files found for download: {download.name}")
         return
