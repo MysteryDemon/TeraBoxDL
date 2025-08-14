@@ -39,15 +39,18 @@ async def wait_for_real_metadata(download, LOGS, timeout=120, check_interval=2):
             LOGS.error(f"Error updating download: {e}")
             return False
 
+        # Wait until Aria2 reports the real file length, not the [METADATA] placeholder
         if download.total_length and download.files:
             real_file = download.files[0]
-            if not real_file.path.startswith("[METADATA]"):
-                LOGS.info(f"✅ Real metadata ready: {real_file.path}")
+            file_name = str(real_file.path)
+            if not file_name.startswith("[METADATA]"):
+                LOGS.info(f"✅ Real metadata ready: {file_name}")
                 return True
 
         if time.time() - start_time > timeout:
             LOGS.error(f"Timeout fetching metadata for: {download.name}")
             return False
+
         await asyncio.sleep(check_interval)
         
 def start_aria2():
