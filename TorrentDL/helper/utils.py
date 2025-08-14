@@ -15,6 +15,28 @@ import re
 import os
 import math
 
+import time
+import shutil
+
+def rename_when_complete(download, desired_name):
+    while True:
+        download.update()  # Refresh status from aria2
+        if download.is_complete:  # Download finished
+            break
+        if download.is_error:  # Something went wrong
+            LOGS.error(f"Download {download.gid} failed, cannot rename.")
+            return
+        time.sleep(2)  # Wait 2 seconds before checking again
+
+    # Rename the main file
+    if download.files:
+        file_path = download.files[0].path
+        new_path = os.path.join(os.path.dirname(file_path), desired_name)
+        if os.path.exists(file_path):
+            shutil.move(file_path, new_path)
+            LOGS.info(f"Renamed download to: {new_path}")
+
+
 def is_aria2_running():
     for proc in psutil.process_iter(attrs=["name", "cmdline"]):
         try:
@@ -137,27 +159,6 @@ def add_download(url: str, output_path: str = None, headers: dict = None, use_cl
                 options["out"] = os.path.basename(output_path)
             download = aria2.add_uris([url], options=options)
             LOGS.info(f"Added direct download: {options.get('out', url)}")
-
-
-def rename_when_complete(download, desired_name):
-    while True:
-        download.update()  # Refresh status from aria2
-        if download.is_complete:  # Download finished
-            break
-        if download.is_error:  # Something went wrong
-            LOGS.error(f"Download {download.gid} failed, cannot rename.")
-            return
-        time.sleep(2)  # Wait 2 seconds before checking again
-
-    # Rename the main file
-    if download.files:
-        file_path = download.files[0].path
-        new_path = os.path.join(os.path.dirname(file_path), desired_name)
-        if os.path.exists(file_path):
-            shutil.move(file_path, new_path)
-            LOGS.info(f"Renamed download to: {new_path}")
-
-
 
 def magnet_to_torrent(magnet_uri: str, save_path: str, timeout: int = 60):
     ses = lt.session()
