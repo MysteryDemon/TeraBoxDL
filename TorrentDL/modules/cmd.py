@@ -117,15 +117,18 @@ async def mediainfo(client, message):
     else:
         return await srm(client, message, help_msg)
 
-async def download_task(url, message, LOGS, download_semaphore):
-    output_path = os.path.abspath(Var.DOWNLOAD_DIR)
-    async with download_semaphore: 
-        try:
-            download = add_download(url, output_path, headers=None)
-            await handle_download_and_send(message, download, message.from_user.id, LOGS)
-        except Exception as e:
-            LOGS.exception(f"❌ Error processing {url}: {e}")
-            await message.reply(f"❌ Error: {e}")
+async def queue_worker():
+    while True:
+        url, message = await download_queue.get()
+        async with download_semaphore:
+            try:
+                download = add_download(url, os.path.abspath(Var.DOWNLOAD_DIR), headers=None)
+                await handle_download_and_send(message, download, message.from_user.id, LOGS)
+            except Exception as e:
+                LOGS.exception(f"❌ Error processing {url}: {e}")
+                await message.reply(f"❌ Error: {e}")
+            finally:
+                download_queue.task_done()
 
 @bot.on_message(
     filters.regex(r"(https?://\S+|magnet:\?xt=urn:btih:[a-fA-F0-9]+)") &
@@ -133,9 +136,9 @@ async def download_task(url, message, LOGS, download_semaphore):
 )
 @new_task
 async def download_handler(_, message: Message):
-    urls = message.text.strip().split() 
-    tasks = [create_task(download_task(url, message, LOGS, download_semaphore)) for url in urls]
-    await gather(*tasks)
+    urls = message.text.strip().split()
+    for url in urls:
+        await download_queue.put((url, message))
         
 @bot.on_message(filters.regex(r"^/c_[a-fA-F0-9]+$"))
 @new_task
