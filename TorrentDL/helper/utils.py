@@ -211,7 +211,8 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
             else:
                 LOGS.error(f"Error updating download: {e}")
                 break
-
+                
+        metadata_name = download_metadata_names.get(getattr(download, 'gid', None), None)
         progress = download.progress
         elapsed_time = datetime.now() - start_time
         elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
