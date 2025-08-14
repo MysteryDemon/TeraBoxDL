@@ -72,7 +72,7 @@ def parseinfo(out):
     tc += '</pre><br>'
     return tc
 
-@Client.on_message(filters.command(["mi", "media_info"]))
+@bot.on_message(filters.command(["mi", "media_info"]))
 async def mediainfo(client, message):
     rply = message.reply_to_message
     help_msg = "<b>By replying to media:</b>"
