@@ -342,7 +342,6 @@ async def upload_progress(current, total, status_message, file_name, user_name, 
         except Exception as e:
             LOGS.error(f"Failed to update upload status message: {e}")
 
-
 import os
 import re
 import aiofiles
@@ -351,10 +350,9 @@ import asyncio
 from shlex import split
 from subprocess import PIPE, STDOUT, run
 
-from pyrogram import Client, filters
+from pyrogram import Client
 from pyrogram.types import Message
 
-# --- Section icons for MediaInfo formatting ---
 SECTION_DICT = {"General": "🗒", "Video": "🎞", "Audio": "🔊", "Text": "🔠", "Menu": "🗃"}
 
 
@@ -378,17 +376,17 @@ def parseinfo(out, size):
     return tc
 
 
-async def gen_mediainfo(link=None, media=None):
+async def gen_mediainfo(client: Client, message: Message, link: str = None, media=None):
     download_folder = "mediainfo"
     os.makedirs(download_folder, exist_ok=True)
     des_path = None
     file_size = 0
 
+    # --- Handle direct download links ---
     if link:
-        # --- Download first 1 MB from URL ---
         filename = re.search(r".+/(.+)", link).group(1)
         des_path = os.path.join(download_folder, filename)
-        headers = {"User-Agent": "Mozilla/5.0", "Range": "bytes=0-1048575"}
+        headers = {"User-Agent": "Mozilla/5.0", "Range": "bytes=0-1048575"}  # first 1MB
         async with aiohttp.ClientSession() as session:
             async with session.get(link, headers=headers) as resp:
                 file_size = int(resp.headers.get("Content-Length", 0))
@@ -397,13 +395,26 @@ async def gen_mediainfo(link=None, media=None):
                         await f.write(chunk)
                         break
 
+    # --- Handle Telegram media ---
     elif media:
         des_path = os.path.join(download_folder, media.file_name)
         file_size = media.file_size
-        # Download only first 5 MB for large files
-        stream_limit = min(file_size, 5*1024*1024)
-        async for chunk in media.download(file_name=des_path, byte_range=(0, stream_limit)):
-            pass  # Media streamed to file
+
+        # Small files: download fully
+        if file_size <= 5*1024*1024:
+            await message.reply_to_message.download(file_name=des_path)
+        # Large files: stream first 5 MB
+        else:
+            async with aiofiles.open(des_path, "wb") as f:
+                limit = 5*1024*1024  # 5 MB
+                chunk_size = 512*1024  # 512 KB
+                offset = 0
+                while offset < limit:
+                    # Pyrogram's download_media does not support partial by default,
+                    # so we fetch in full chunks and slice manually
+                    data = await client.download_media(message.reply_to_message)
+                    await f.write(data[offset:offset+chunk_size])
+                    offset += chunk_size
 
     else:
         return None, "No link or media provided."
@@ -412,8 +423,8 @@ async def gen_mediainfo(link=None, media=None):
     result = run(split(f'mediainfo "{des_path}"'), stdout=PIPE, stderr=STDOUT, text=True)
     info = parseinfo(result.stdout, file_size)
 
-    # Clean up temp file if downloaded
-    if link and des_path and os.path.exists(des_path):
+    # Clean up temp file if it was downloaded
+    if des_path and os.path.exists(des_path) and link:
         os.remove(des_path)
 
     return info, None
