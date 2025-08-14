@@ -46,8 +46,8 @@ async def main():
         await telegraph.create_account()
         await bot.set_bot_commands([
             BotCommand("start", "Check Bot Alive Status !"),
-            BotCommand("restart", "[ADMIN] Restart Bot.. !"),
-            BotCommand("mediainfo", "To Get Information Of Media")
+            BotCommand("restart", "[OWNER] Restart Bot.. !"),
+            BotCommand("mediainfo", "[OWNER] To Get Information Of Media")
         ])
         await restart()
         LOGS.info(r"""
