@@ -1,4 +1,4 @@
-from TorrentDL import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, active_downloads, last_upload_update, last_upload_update, last_upload_progress, last_upload_speed, download_metadata_names
+from TorrentDL import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, active_downloads, last_upload_update, last_upload_update, last_upload_progress, last_upload_speed
 from pyrogram import Client, filters
 import libtorrent as lt
 from pyrogram.types import Message
@@ -14,6 +14,8 @@ import uuid
 import re
 import os
 import math
+
+download_metadata_names = {}
 
 def is_aria2_running():
     for proc in psutil.process_iter(attrs=["name", "cmdline"]):
@@ -33,13 +35,40 @@ def stream_aria2_logs(process):
 def generate_download_id():
     return uuid.uuid4().hex[:16]
 
+import libtorrent as lt
+import time
+import os
+
 def get_torrent_metadata_name(torrent_path):
     try:
-        info = lt.torrent_info(torrent_path)
-        return info.name() 
+        # Case 1: It's a .torrent file
+        if os.path.exists(torrent_path) and torrent_path.endswith(".torrent"):
+            info = lt.torrent_info(torrent_path)
+            return info.name()
+
+        # Case 2: It's a magnet link
+        elif torrent_path.startswith("magnet:"):
+            ses = lt.session()
+            params = {
+                'save_path': './',  # temporary location
+                'storage_mode': lt.storage_mode_t.storage_mode_sparse
+            }
+            h = ses.add_torrent({'url': torrent_path, **params})
+
+            # Wait until metadata is fetched
+            while not h.has_metadata():
+                time.sleep(0.5)
+
+            return h.get_torrent_info().name()
+
+        else:
+            raise ValueError("Not a valid .torrent file or magnet link")
+
     except Exception as e:
         LOGS.error(f"Failed to read torrent metadata: {e}")
-        return None 
+        return None
+
+
 
 def start_aria2():
     if not is_aria2_running():
@@ -70,16 +99,14 @@ def start_aria2():
         LOGS.info("ℹ️ aria2c is already running.")
 
 def clean_torrent_name(raw_name):
-    name_no_ext = re.sub(r'\.[^.]+$', '', raw_name)
-    name_cleaned = name_no_ext.replace('.', ' ')
-    group_match = re.search(r'\b(CR|WEB-DL|BluRay|HDRip|HDTV|AMZN|HIDI|ADN|NF|CTHP|DSNP)\b', name_cleaned, re.IGNORECASE)
-    group_tag = f"[{group_match.group(1).upper()}]" if group_match else "[ANI]"
-    ep_match = re.search(r'\b(S\d{1,2}E\d{1,2})\b', name_cleaned, re.IGNORECASE)
+    group_match = re.search(r'\b(CR|WEB-DL|BluRay|HDRip|HDTV|AMZN|HIDI|ADN|NF|CTHP|DSNP|)\b', raw_name, re.IGNORECASE)
+    group_tag = f"[{group_match.group(1).upper()}]" if group_match else ""
+    ep_match = re.search(r'\b(S\d{1,2}E\d{1,2})\b', raw_name, re.IGNORECASE)
     ep_tag = ep_match.group(1) if ep_match else ""
-    res_match = re.search(r'\b(\d{3,4}p)\b', name_cleaned)
+    res_match = re.search(r'\b(\d{3,4}p)\b', raw_name)
     res_tag = f"[{res_match.group(1)}]" if res_match else ""
-    dual_tag = "[DUAL]" if re.search(r'\bDUAL\b', name_cleaned, re.IGNORECASE) else ""
-    series_match = re.search(rf'^(.*?)\s*{ep_tag}', name_cleaned)
+    dual_tag = "[DUAL]" if re.search(r'\bDUAL\b', raw_name, re.IGNORECASE) else ""
+    series_match = re.search(rf'^(.*?)\s*{ep_tag}', raw_name)
     series_name = series_match.group(1).strip() if series_match else ""
     cleaned_name = " ".join(part for part in [group_tag, series_name, ep_tag, res_tag, dual_tag] if part)
     return cleaned_name
