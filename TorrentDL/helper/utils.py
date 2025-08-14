@@ -1,4 +1,3 @@
-
 from TorrentDL import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, active_downloads, last_upload_update, last_upload_update, last_upload_progress, last_upload_speed
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -202,7 +201,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
 
         real_files = [f for f in download.files if "[METADATA]" not in str(f.path)]
         if real_files:
-            break
+            return
 
     real_files = [f for f in download.files if "[METADATA]" not in str(f.path)]
     if not real_files:
