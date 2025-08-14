@@ -12,7 +12,7 @@ from pyrogram import __version__ as pyroversion
 from TorrentDL import bot, Var, __version__, StartTime, LOGS, BUTTONS_PER_PAGE, aria2, active_downloads, download_lock, lock
 from torrentdl import script
 from TorrentDL.core.func_utils import editMessage, sendMessage, new_task, is_valid_url, generate_buttons, get_readable_time
-from TorrentDL.helper.utils import wait_for_download, add_download, handle_download_and_send
+from TorrentDL.helper.utils import wait_for_download, add_download, handle_download_and_send, start_aria2
 from TorrentDL.helper.mediainfo import srm, gen_mediainfo
 
 @bot.on_message(command('start') & private)
