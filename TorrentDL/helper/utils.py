@@ -59,8 +59,20 @@ def start_aria2():
     else:
         LOGS.info("ℹ️ aria2c is already running.")
 
-async def add_download(url: str, output_path: str, headers: dict = None):
+import os
+import urllib.request
+from TorrentDL import LOGS, aria2
+
+def add_download(url: str, output_path: str, headers: dict = None):
+    """
+    Add a download to aria2. Supports:
+    - Direct file URLs
+    - Magnet links
+    - .torrent URLs
+    """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    # Aria2 options
     options = {
         "dir": os.path.dirname(output_path),
         "out": os.path.basename(output_path),
@@ -73,15 +85,21 @@ async def add_download(url: str, output_path: str, headers: dict = None):
     }
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
+
+    # Handle .torrent URLs
     if url.lower().endswith(".torrent"):
         temp_torrent = os.path.join("/tmp", os.path.basename(url))
         LOGS.info(f"Downloading .torrent file to {temp_torrent}...")
         urllib.request.urlretrieve(url, temp_torrent)
         download = aria2.add_torrent(temp_torrent, options=options)
         LOGS.info(f"Added torrent download: {output_path}")
+        # Optional: delete the temp torrent file immediately
+        os.remove(temp_torrent)
     else:
+        # Magnet link or direct URL
         download = aria2.add_uris([url], options=options)
         LOGS.info(f"Added direct/magnet download: {output_path}")
+
     return download
 
 async def wait_for_download(download):
