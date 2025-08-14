@@ -17,7 +17,6 @@ from TorrentDL.helper.utils import wait_for_download, add_download, handle_downl
 @bot.on_message(command('start') & private)
 @new_task
 async def start_msg(client, message: Message):
-    await add_user_to_database(client, message)
     uid = message.from_user.id
     from_user = message.from_user
     txtargs = message.text.split()
