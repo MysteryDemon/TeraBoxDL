@@ -1,5 +1,6 @@
 from TorrentDL import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, active_downloads, last_upload_update, last_upload_update, last_upload_progress, last_upload_speed
 from pyrogram import Client, filters
+from TorrentDL import bot
 from pyrogram.types import Message
 from datetime import datetime
 from threading import Thread
