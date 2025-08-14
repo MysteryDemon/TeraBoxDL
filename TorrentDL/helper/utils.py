@@ -373,6 +373,7 @@ async def upload_progress(current, total, status_message, file_name, user_name, 
     last_upload_speed[upload_id] = (current, now)
     last_time = last_upload_update.get(upload_id, 0)
     last_percent = last_upload_progress.get(upload_id, 0)
+    metadata_name = download_metadata_names.get(getattr(download, 'gid', None), None)
     bar_length = 12
     filled_slots = int(progress / (100 / bar_length))
     status_bar = f"{'⬢' * filled_slots}{'⬡' * (bar_length - filled_slots)}"
