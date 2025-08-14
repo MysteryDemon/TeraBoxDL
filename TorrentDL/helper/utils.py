@@ -30,6 +30,9 @@ def stream_aria2_logs(process):
 def generate_download_id():
     return uuid.uuid4().hex[:16]
 
+def get_real_files(download):
+    return [f for f in download.files if "[METADATA]" not in str(f.path)]
+
 def start_aria2():
     if not is_aria2_running():
         LOGS.info("🔄 Starting aria2c with logging...")
@@ -195,16 +198,16 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
             LOGS.error(f"Error updating completed download: {e}")
             await message.reply(f"❌ Error updating download: {e}")
             return
-            
-    if not completed.files:
-        await message.reply("❌ No files found in download.")
+
+        real_files = [f for f in download.files if "[METADATA]" not in str(f.path)]
+        if real_files:
+            break
+
+    real_files = [f for f in download.files if "[METADATA]" not in str(f.path)]
+    if not real_files:
+        await message.reply("❌ No actual files were downloaded yet. Waiting for peers or metadata.")
         return
 
-    for file_obj in completed.files:
-        if "[METADATA]" in str(file_obj.path):
-            continue
-
-            
         file_path = file_obj.path
         if not file_path or not os.path.exists(file_path):
             LOGS.error(f"File not found: {file_path}")
