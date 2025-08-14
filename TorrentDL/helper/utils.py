@@ -157,6 +157,10 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
                 LOGS.error(f"Error updating download: {e}")
                 break
 
+        if download.files and all("[METADATA]" in f.path for f in download.files):
+            await asyncio.sleep(2)
+            continue
+
         progress = download.progress
         elapsed_time = datetime.now() - start_time
         elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
