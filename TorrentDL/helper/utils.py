@@ -82,11 +82,6 @@ def clean_torrent_name(raw_name):
     cleaned_name = " ".join(part for part in [group_tag, series_name, ep_tag, res_tag, dual_tag] if part)
     return cleaned_name
 
-import os
-import urllib.request
-from TorrentDL import LOGS, aria2
-from TorrentDL.helper.utils import get_torrent_metadata_name, clean_torrent_name, generate_download_id, magnet_to_torrent
-
 def add_download(url: str, output_path: str = None, headers: dict = None, use_clean_name: bool = True):
     save_dir = os.path.dirname(output_path) if output_path else "/downloads"
     os.makedirs(save_dir, exist_ok=True)
