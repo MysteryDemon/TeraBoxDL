@@ -15,9 +15,7 @@ import re
 import os
 import math
 
-import time
-import shutil
-
+download_metadata_names = {}
 
 def is_aria2_running():
     for proc in psutil.process_iter(attrs=["name", "cmdline"]):
@@ -106,12 +104,16 @@ def add_download(url: str, output_path: str, headers: dict = None):
         temp_torrent = os.path.join("/tmp", os.path.basename(url))
         LOGS.info(f"Downloading .torrent file to {temp_torrent}...")
         urllib.request.urlretrieve(url, temp_torrent)
+        raw_metadata_name = get_torrent_metadata_name(temp_torrent)
+        metadata_name = clean_torrent_name(raw_metadata_name) if raw_metadata_name else None
         download = aria2.add_torrent(temp_torrent, options=options)
         LOGS.info(f"Added torrent download: {output_path}")
         os.remove(temp_torrent)
     elif url.startswith("magnet:"):
         temp_torrent = os.path.join("/tmp", f"{generate_download_id()}.torrent")
         temp_torrent = magnet_to_torrent(url, temp_torrent)
+        raw_metadata_name = get_torrent_metadata_name(temp_torrent)
+        metadata_name = clean_torrent_name(raw_metadata_name) if raw_metadata_name else None
         if temp_torrent is None:
             LOGS.error(f"Failed to convert magnet to torrent: {url}")
             return None
@@ -121,6 +123,8 @@ def add_download(url: str, output_path: str, headers: dict = None):
     else:
         download = aria2.add_uris([url], options=options)
         LOGS.info(f"Added direct download: {output_path}")
+    if metadata_name and hasattr(download, 'gid'):
+        download_metadata_names[download.gid] = metadata_name
     return download
 
 def magnet_to_torrent(magnet_uri: str, save_path: str, timeout: int = 60):
@@ -258,6 +262,15 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
             return
             
     file_path = completed.files[0].path if completed.files else None
+    metadata_name = download_metadata_names.get(download.gid, None)
+    if metadata_name and file_path:
+        ext = os.path.splitext(file_path)[1]
+        new_file_path = os.path.join(os.path.dirname(file_path), f"{metadata_name}{ext}")
+        try:
+            os.rename(file_path, new_file_path)
+            file_path = new_file_path
+        except Exception as e:
+            LOGS.error(f"Failed to rename file: {e}")
     elapsed_time = datetime.now() - start_time
     elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
     status_text = (
