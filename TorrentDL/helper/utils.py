@@ -288,7 +288,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         
     metadata_name = download_metadata_names.get(getattr(download, 'gid', None), None)
     file_size = os.path.getsize(file_path)
-    caption = f"<b>{metadata_name}.mkv</b>\n"
+    caption = f"<b>{metadata_name}</b>\n"
     ext = os.path.splitext(file_path)[1].lower()
     try:
         if ext in [".mp4", ".mkv", ".mov", ".avi"]:
@@ -333,7 +333,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
 
 async def split_video_with_ffmpeg(input_path, output_prefix, split_size):
     try:
-        original_ext = "mkv"
+        original_ext = os.path.splitext(input_path)[1].lower() or '.mp4'
         start_time = datetime.now()
         proc = await asyncio.create_subprocess_exec(
             'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
