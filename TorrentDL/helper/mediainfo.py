@@ -13,8 +13,6 @@ from pyrogram import Client, filters, enums
 from TorrentDL import bot
 from TorrentDL import LOGS as LOGGER
 
-telegraph = TelegraphHelper()
-
 class TelegraphHelper:
     def __init__(self):
         self.telegraph = Telegraph(domain='graph.org')
@@ -178,3 +176,5 @@ async def srm(c, m, text, photo=None, video=None, markup=None, reply_id=None, de
    return my
  except:
    LOGGER.error('srm', exc_info=True)
+
+telegraph = TelegraphHelper()
