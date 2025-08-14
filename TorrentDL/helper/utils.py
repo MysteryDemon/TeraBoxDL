@@ -135,6 +135,8 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
 
     # Wait until actual files appear (skip [METADATA])
     real_files = []
+    timeout = 300  # maximum wait time in seconds
+    start_wait = time.time()
     while download.is_active:
         if active_downloads[download_id].get("cancelled"):
             LOGS.info(f"Download cancelled for ID: {download_id}")
@@ -145,11 +147,12 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         except Exception as e:
             LOGS.error(f"Error updating download: {e}")
             break
-
-        # Filter out metadata placeholders
+            
         real_files = [f for f in download.files if "[METADATA]" not in str(f.path)]
         if real_files:
-            break  # real file found, exit loop
+            break
+        except Exception as e:
+            LOGS.error(f"Error updating download: {e}")
         await asyncio.sleep(2)
 
     if not real_files:
