@@ -13,7 +13,7 @@ from TorrentDL import bot, Var, __version__, StartTime, LOGS, BUTTONS_PER_PAGE, 
 from torrentdl import script
 from TorrentDL.core.func_utils import editMessage, sendMessage, new_task, is_valid_url, generate_buttons, get_readable_time
 from TorrentDL.helper.utils import wait_for_download, add_download, handle_download_and_send
-from TorrentDL.helper.mediainfo import srm
+from TorrentDL.helper.mediainfo import srm, gen_mediainfo
 
 @bot.on_message(command('start') & private)
 @new_task
@@ -92,7 +92,7 @@ async def set_cb(client, query: CallbackQuery):
             user_id=query.from_user.id),
             reply_markup=InlineKeyboardMarkup(await generate_buttons()))
 
-@bot.on_message(filters.command(["mi", "media_info"]))
+@bot.on_message(filters.command(["mi", "mediainfo"]))
 async def mediainfo(client, message):
     rply = message.reply_to_message
     help_msg = "<b>By replying to media:</b>"
