@@ -127,9 +127,8 @@ async def download_handler(_, message: Message):
     url = message.text.strip()
     output_dir = Var.DOWNLOAD_DIR
     if url.startswith("magnet:") or url.endswith(".torrent"):
-        await download_with_aria2c_subprocess(url, output_dir, message)
+        await download_torrents(url, output_dir, message)
         return
-        
     waiting_msg = await message.reply("<b>Added Link To Queue</b>")
     async with download_lock:
         try:
