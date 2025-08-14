@@ -181,4 +181,14 @@ async def srm(c, m, text, photo=None, video=None, markup=None, reply_id=None, de
  except:
    LOGGER.error('srm', exc_info=True)
 
+async def delete_msg(msg_list: list, dt=10):
+   async def _delete_messages():
+      await asyncio.sleep(dt)
+      for msg in msg_list:
+         try:
+            await msg.delete()
+         except Exception as e:
+             pass 
+   asyncio.create_task(_delete_messages())
+
 telegraph = TelegraphHelper()
