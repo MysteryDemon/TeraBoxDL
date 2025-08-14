@@ -4,6 +4,7 @@ import psutil
 import aria2p
 import time
 import asyncio
+from asyncio import Semaphore, create_task, gather
 from pyrogram.filters import command, private, user, create
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, Message
 from pyrogram import Client, filters
