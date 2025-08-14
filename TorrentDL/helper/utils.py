@@ -1,4 +1,4 @@
-from TorrentDL import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, active_downloads, last_upload_update, last_upload_update, last_upload_progress, last_upload_speed
+from TeraBoxDownloader import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, active_downloads, last_upload_update, last_upload_update, last_upload_progress, last_upload_speed
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from datetime import datetime
@@ -12,13 +12,6 @@ import uuid
 import os
 import math
 
-def generate_download_id():
-    return uuid.uuid4().hex[:16]
-
-def stream_aria2_logs(process):
-    for line in process.stdout:
-        LOGS.info(f"[aria2c] {line.decode().strip()}")
-
 def is_aria2_running():
     for proc in psutil.process_iter(attrs=["name", "cmdline"]):
         try:
@@ -29,6 +22,13 @@ def is_aria2_running():
         except (psutil.NoSuchProcess, psutil.AccessDenied, TypeError):
             continue
     return False
+
+def stream_aria2_logs(process):
+    for line in process.stdout:
+        LOGS.info(f"[aria2c] {line.decode().strip()}")
+
+def generate_download_id():
+    return uuid.uuid4().hex[:16]
 
 def start_aria2():
     if not is_aria2_running():
@@ -43,9 +43,9 @@ def start_aria2():
                 "--disable-ipv6",
                 "--max-connection-per-server=16",
                 "--rpc-allow-origin-all=true",
+                "--force-sequential",
                 "--allow-overwrite=true",
-                "--continue=true", 
-                "--bt-enable-lpd=true",
+                "--continue=false",
                 "--daemon=false",
                 "--console-log-level=notice",
                 "--summary-interval=1"
@@ -57,13 +57,8 @@ def start_aria2():
         time.sleep(2)
     else:
         LOGS.info("ℹ️ aria2c is already running.")
-        
+
 def add_download(url: str, output_path: str, headers: dict = None):
-    if not output_path or os.path.dirname(output_path) == '':
-        default_dir = Var.DOWNLOAD_DIR if hasattr(Var, 'DOWNLOAD_DIR') else '/downloads'
-        file_name = os.path.basename(output_path) or f"download_{uuid.uuid4().hex[:16]}"
-        output_path = os.path.join(default_dir, file_name)
-        
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     options = {
         "dir": os.path.dirname(output_path),
@@ -74,9 +69,6 @@ def add_download(url: str, output_path: str, headers: dict = None):
         "enable-http-pipelining": "true",
         "auto-file-renaming": "false",
         "allow-overwrite": "true",
-        "bt-enable-lpd": "true", 
-        "bt-metadata-only": "false", 
-        "bt-save-metadata": "true" 
     }
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
@@ -194,36 +186,6 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
             LOGS.error(f"Error updating completed download: {e}")
             await message.reply(f"❌ Error updating download: {e}")
             return
-
-    file_paths = [f.path for f in completed.files] if completed.files else []
-    if not file_paths:
-        await message.reply(f"❌ No files found for torrent: {download.name}")
-        return
-
-    # Find a valid media file
-    target_extensions = [".mkv", ".mp4", ".avi", ".mov"]
-    file_path = None
-    for path in file_paths:
-        path = str(path)
-        if any(path.lower().endswith(ext) for ext in target_extensions):
-            if os.path.exists(path):
-                file_path = path
-                break
-        # Check directories
-        if os.path.isdir(path):
-            for root, _, files in os.walk(str(path)):
-                for file in files:
-                    if any(file.lower().endswith(ext) for ext in target_extensions):
-                        full_path = os.path.join(str(root), file)
-                        if os.path.exists(full_path):
-                            file_path = full_path
-                            break
-                if file_path:
-                    break
-
-    if not file_path:
-        await message.reply(f"❌ No valid media file found in torrent: {download.name}")
-        return
             
     file_path = completed.files[0].path if completed.files else None
     elapsed_time = datetime.now() - start_time
@@ -240,11 +202,6 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         await message.reply(f"❌ File not found: {file_path}")
         return
 
-    file_paths = [str(f.path) for f in completed.files] if completed.files else []
-    if not file_paths:
-        await message.reply(f"❌ No files found for download: {download.name}")
-        return
-        
     file_size = os.path.getsize(file_path)
     caption = f"<b>{download.name}</b>\n"
     ext = os.path.splitext(file_path)[1].lower()
