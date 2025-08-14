@@ -82,9 +82,13 @@ def clean_torrent_name(raw_name):
     cleaned_name = " ".join(part for part in [group_tag, series_name, ep_tag, res_tag, dual_tag] if part)
     return cleaned_name
 
+
+torrent_metadata_map = {}
+
 def add_download(url: str, output_path: str = None, headers: dict = None, use_clean_name: bool = True):
     save_dir = os.path.dirname(output_path) if output_path else "/downloads"
     os.makedirs(save_dir, exist_ok=True)
+
     options = {
         "dir": save_dir,
         "split": "16",
@@ -96,6 +100,7 @@ def add_download(url: str, output_path: str = None, headers: dict = None, use_cl
         "seed-time": "0",
         "max-upload-limit": "0",
     }
+
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
     try:
@@ -104,9 +109,12 @@ def add_download(url: str, output_path: str = None, headers: dict = None, use_cl
             LOGS.info(f"Downloading .torrent file to {temp_torrent}...")
             urllib.request.urlretrieve(url, temp_torrent)
             metadata_name = get_torrent_metadata_name(temp_torrent)
-            options["out"] = clean_torrent_name(metadata_name) if use_clean_name else metadata_name
+            if use_clean_name:
+                metadata_name = clean_torrent_name(metadata_name)
+            options["out"] = metadata_name
             download = aria2.add_torrent(temp_torrent, options=options)
-            LOGS.info(f"Added torrent download: {options['out']}")
+            torrent_metadata_map[download.gid] = metadata_name
+            LOGS.info(f"Added torrent download: {metadata_name}")
             if os.path.exists(temp_torrent):
                 os.remove(temp_torrent)
         elif url.startswith("magnet:"):
@@ -116,9 +124,12 @@ def add_download(url: str, output_path: str = None, headers: dict = None, use_cl
                 LOGS.error(f"Failed to convert magnet to torrent: {url}")
                 return None
             metadata_name = get_torrent_metadata_name(temp_torrent)
-            options["out"] = clean_torrent_name(metadata_name) if use_clean_name else metadata_name
+            if use_clean_name:
+                metadata_name = clean_torrent_name(metadata_name)
+            options["out"] = metadata_name
             download = aria2.add_torrent(temp_torrent, options=options)
-            LOGS.info(f"Added magnet download: {options['out']}")
+            torrent_metadata_map[download.gid] = metadata_name
+            LOGS.info(f"Added magnet download: {metadata_name}")
             if os.path.exists(temp_torrent):
                 os.remove(temp_torrent)
         else:
@@ -126,10 +137,27 @@ def add_download(url: str, output_path: str = None, headers: dict = None, use_cl
                 options["out"] = os.path.basename(output_path)
             download = aria2.add_uris([url], options=options)
             LOGS.info(f"Added direct download: {options.get('out', url)}")
+        def rename_when_complete(download):
+            try:
+                download.wait_for_complete()  # Wait until aria2 finishes
+                if download.gid in torrent_metadata_map:
+                    desired_name = torrent_metadata_map.pop(download.gid)
+                    # Find the main downloaded file
+                    if download.files:
+                        file_path = download.files[0].path
+                        new_path = os.path.join(os.path.dirname(file_path), desired_name)
+                        if os.path.exists(file_path):
+                            shutil.move(file_path, new_path)
+                            LOGS.info(f"Renamed download to: {new_path}")
+            except Exception as e:
+                LOGS.error(f"Failed to rename download {download.gid}: {e}")
+        import threading
+        threading.Thread(target=rename_when_complete, args=(download,), daemon=True).start()
         return download
     except Exception as e:
         LOGS.error(f"Failed to add download for {url}: {e}")
         return None
+
 
 def magnet_to_torrent(magnet_uri: str, save_path: str, timeout: int = 60):
     ses = lt.session()
