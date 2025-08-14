@@ -118,9 +118,7 @@ from random import SystemRandom
 from asyncio import sleep
 from telegraph.aio import Telegraph
 from telegraph.exceptions import RetryAfterError
-from bot import bot_loop
-from config import Config
-from __init__ import LOGGER
+from TorrentDL import bot_loop
 
 class TelegraphHelper:
     def __init__(self):
