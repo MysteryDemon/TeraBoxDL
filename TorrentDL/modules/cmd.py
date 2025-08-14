@@ -120,8 +120,7 @@ async def mediainfo(client, message):
         return await srm(client, message, help_msg)
 
 @bot.on_message(
-    filters.regex(r"(https?://\S+|magnet:\?xt=urn:btih:[a-fA-F0-9]+)") &
-    ~filters.command(["start", "log"]) &
+    filters.regex(r"^magnet:\?xt=urn:btih:[a-fA-F0-9]+") &
     filters.create(admin_only)
 )
 @new_task
