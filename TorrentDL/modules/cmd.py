@@ -116,8 +116,6 @@ async def mediainfo(client, message):
     else:
         return await srm(client, message, help_msg)
 
-from urllib.parse import urlparse
-
 @bot.on_message(
     filters.regex(r"(https?://\S+|magnet:\?xt=urn:btih:[a-fA-F0-9]+)") &
     ~filters.command(["start", "log"])
@@ -127,20 +125,26 @@ async def download_handler(_, message: Message):
     url = message.text.strip()
     output_dir = Var.DOWNLOAD_DIR
     if url.startswith("magnet:") or url.endswith(".torrent"):
-        download = add_download(url, output_dir)
-        await handle_download_and_send(message, download, message.from_user.id, LOGS)
+        try:
+            download = await asyncio.to_thread(add_download, url, output_dir)
+            await handle_download_and_send(message, download, message.from_user.id, LOGS)
+        except Exception as e:
+            LOGS.exception(f"❌ Error processing {url}: {e}")
+            await message.reply(f"❌ Error: {e}")
         return
     waiting_msg = await message.reply("<b>Added Link To Queue</b>")
     async with download_lock:
         try:
-            start_aria2() 
-            download = add_download(url, output_dir)
+            await asyncio.to_thread(start_aria2)
+            download = await asyncio.to_thread(add_download, url, output_dir)
             await handle_download_and_send(message, download, message.from_user.id, LOGS)
         except Exception as e:
             LOGS.exception(f"❌ Error processing {url}: {e}")
             await message.reply(f"❌ Error: {e}")
         finally:
-            await waiting_msg.delete()
+            if waiting_msg:
+                await waiting_msg.delete()
+
 
 @bot.on_message(filters.regex(r"^/c_[a-fA-F0-9]+$"))
 @new_task
