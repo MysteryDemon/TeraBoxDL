@@ -116,6 +116,8 @@ async def mediainfo(client, message):
     else:
         return await srm(client, message, help_msg)
 
+from urllib.parse import urlparse
+
 @bot.on_message(
     filters.regex(r"(https?://\S+|magnet:\?xt=urn:btih:[a-fA-F0-9]+)") &
     ~filters.command(["start", "log"])
@@ -123,13 +125,15 @@ async def mediainfo(client, message):
 @new_task
 async def download_handler(_, message: Message):
     url = message.text.strip()
-    parsed_url = urlparse(url)
-    filename = os.path.basename(parsed_url.path) or "output.file"
-    output_path = os.path.abspath(os.path.join(Var.DOWNLOAD_DIR, filename))
+
+    # Create output dir path
+    output_dir = Var.DOWNLOAD_DIR
+
     waiting_msg = await message.reply("<b>Added Link To Queue</b>")
     async with download_lock:
         try:
-            download = add_download(url, output_path, headers=None)  # headers=None since Aria2 handles it
+            start_aria2() 
+            download = add_download_auto(url, output_dir)  # <-- Unified for HTTP/Magnet/Torrent
             await handle_download_and_send(message, download, message.from_user.id, LOGS)
         except Exception as e:
             LOGS.exception(f"❌ Error processing {url}: {e}")
