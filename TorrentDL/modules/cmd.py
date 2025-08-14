@@ -9,7 +9,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQ
 from pyrogram import Client, filters
 from urllib.parse import urlparse
 from pyrogram import __version__ as pyroversion
-from TorrentDL import bot, Var, __version__, StartTime, LOGS, BUTTONS_PER_PAGE, aria2, active_downloads, download_lock, lock
+from TorrentDL import bot, Var, __version__, StartTime, LOGS, BUTTONS_PER_PAGE, aria2, active_downloads, download_lock, lock, download_semaphore
 from torrentdl import script
 from TorrentDL.core.func_utils import editMessage, sendMessage, new_task, is_valid_url, generate_buttons, get_readable_time
 from TorrentDL.helper.utils import wait_for_download, add_download, handle_download_and_send, start_aria2
@@ -116,27 +116,31 @@ async def mediainfo(client, message):
     else:
         return await srm(client, message, help_msg)
 
-@bot.on_message(
-    filters.regex(r"(https?://\S+|magnet:\?xt=urn:btih:[a-fA-F0-9]+)") &
-    ~filters.command(["start", "log"])
-)
-@new_task
-async def download_handler(_, message: Message):
-    url = message.text.strip()
+async def download_task(url, message, LOGS):
     parsed_url = urlparse(url)
     filename = os.path.basename(parsed_url.path) or "output.file"
     output_path = os.path.abspath(os.path.join(Var.DOWNLOAD_DIR, filename))
-    waiting_msg = await message.reply("<b>Added Link To Queue</b>")
-    async with download_lock:
+    async with download_semaphore: 
+        waiting_msg = await message.reply(f"<b>Downloading:</b> {filename}")
         try:
-            download = add_download(url, output_path, headers=None)  # headers=None since Aria2 handles it
+            download = add_download(url, output_path, headers=None)
             await handle_download_and_send(message, download, message.from_user.id, LOGS)
         except Exception as e:
             LOGS.exception(f"❌ Error processing {url}: {e}")
             await message.reply(f"❌ Error: {e}")
         finally:
             await waiting_msg.delete()
-            
+
+@bot.on_message(
+    filters.regex(r"(https?://\S+|magnet:\?xt=urn:btih:[a-fA-F0-9]+)") &
+    ~filters.command(["start", "log"])
+)
+@new_task
+async def download_handler(_, message: Message):
+    urls = message.text.strip().split() 
+    tasks = [create_task(download_task(url, message, LOGS)) for url in urls]
+    await gather(*tasks)
+        
 @bot.on_message(filters.regex(r"^/c_[a-fA-F0-9]+$"))
 @new_task
 async def cancel_download(client, message: Message):
