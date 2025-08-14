@@ -340,3 +340,102 @@ async def upload_progress(current, total, status_message, file_name, user_name, 
             last_upload_progress[upload_id] = progress
         except Exception as e:
             LOGS.error(f"Failed to update upload status message: {e}")
+
+
+import os
+import re
+import aiofiles
+import aiohttp
+import asyncio
+from shlex import split
+from subprocess import PIPE, STDOUT, run
+
+from pyrogram import Client, filters
+from pyrogram.types import Message
+
+# --- Section icons for MediaInfo formatting ---
+SECTION_DICT = {"General": "🗒", "Video": "🎞", "Audio": "🔊", "Text": "🔠", "Menu": "🗃"}
+
+
+def parseinfo(out, size):
+    tc, trigger = "", False
+    size_line = f"File size                                 : {size / (1024*1024):.2f} MiB"
+    for line in out.split("\n"):
+        for section, emoji in SECTION_DICT.items():
+            if line.startswith(section):
+                trigger = True
+                if not line.startswith("General"):
+                    tc += "\n"
+                tc += f"{emoji} {line.replace('Text', 'Subtitle')}\n"
+                break
+        if line.startswith("File size"):
+            line = size_line
+        if trigger:
+            trigger = False
+        else:
+            tc += line + "\n"
+    return tc
+
+
+async def gen_mediainfo(link=None, media=None):
+    download_folder = "mediainfo"
+    os.makedirs(download_folder, exist_ok=True)
+    des_path = None
+    file_size = 0
+
+    if link:
+        # --- Download first 1 MB from URL ---
+        filename = re.search(r".+/(.+)", link).group(1)
+        des_path = os.path.join(download_folder, filename)
+        headers = {"User-Agent": "Mozilla/5.0", "Range": "bytes=0-1048575"}
+        async with aiohttp.ClientSession() as session:
+            async with session.get(link, headers=headers) as resp:
+                file_size = int(resp.headers.get("Content-Length", 0))
+                async with aiofiles.open(des_path, "wb") as f:
+                    async for chunk in resp.content.iter_chunked(1024*1024):
+                        await f.write(chunk)
+                        break
+
+    elif media:
+        des_path = os.path.join(download_folder, media.file_name)
+        file_size = media.file_size
+        # Download only first 5 MB for large files
+        stream_limit = min(file_size, 5*1024*1024)
+        async for chunk in media.download(file_name=des_path, byte_range=(0, stream_limit)):
+            pass  # Media streamed to file
+
+    else:
+        return None, "No link or media provided."
+
+    # --- Run MediaInfo CLI ---
+    result = run(split(f'mediainfo "{des_path}"'), stdout=PIPE, stderr=STDOUT, text=True)
+    info = parseinfo(result.stdout, file_size)
+
+    # Clean up temp file if downloaded
+    if link and des_path and os.path.exists(des_path):
+        os.remove(des_path)
+
+    return info, None
+
+@bot.on_message(filters.command("mediainfo") & filters.private)
+async def mediainfo_cmd(client: Client, message: Message):
+    reply = message.reply_to_message
+    temp_msg = await message.reply("<i>Generating MediaInfo...</i>")
+
+    if reply and reply.text:
+        link = reply.text
+        info, error = await gen_mediainfo(link=link)
+    elif reply and (file := reply.document or reply.video or reply.audio):
+        info, error = await gen_mediainfo(media=file)
+    else:
+        await temp_msg.edit("Reply to a media file or send a link.")
+        return
+
+    if error:
+        await temp_msg.edit(f"<b>Error:</b> {error}")
+    else:
+        # Limit Telegram message size
+        if len(info) > 4000:
+            info = info[:3990] + "\n\n...truncated..."
+        await temp_msg.edit(f"<pre>{info}</pre>", disable_web_page_preview=True)
+
