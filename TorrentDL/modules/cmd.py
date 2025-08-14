@@ -127,7 +127,8 @@ async def download_handler(_, message: Message):
     url = message.text.strip()
     output_dir = Var.DOWNLOAD_DIR
     if url.startswith("magnet:") or url.endswith(".torrent"):
-        await handle_download_and_send(url, output_dir)
+        download = add_download(url, output_dir)
+        await handle_download_and_send(message, download, message.from_user.id, LOGS)
         return
     waiting_msg = await message.reply("<b>Added Link To Queue</b>")
     async with download_lock:
