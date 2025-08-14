@@ -201,8 +201,9 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         return
 
     for file_obj in completed.files:
-        if "[METADATA]" in file_obj.path:
+        if "[METADATA]" in str(file_obj.path):
             continue
+
             
         file_path = file_obj.path
         if not file_path or not os.path.exists(file_path):
