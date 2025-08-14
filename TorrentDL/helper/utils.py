@@ -284,7 +284,8 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
     if not file_path or not os.path.exists(file_path):
         await message.reply(f"❌ File not found: {file_path}")
         return
-
+        
+    metadata_name = download_metadata_names.get(getattr(download, 'gid', None), None)
     file_size = os.path.getsize(file_path)
     caption = f"<b>{metadata_name}.mkv</b>\n"
     ext = os.path.splitext(file_path)[1].lower()
