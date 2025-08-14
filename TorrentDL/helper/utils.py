@@ -138,6 +138,10 @@ def add_download(url: str, output_path: str = None, headers: dict = None, use_cl
             download = aria2.add_uris([url], options=options)
             LOGS.info(f"Added direct download: {options.get('out', url)}")
 
+
+
+import time
+
 def rename_when_complete(download):
     try:
         # Poll aria2 until the download is complete
@@ -161,6 +165,7 @@ def rename_when_complete(download):
 
     except Exception as e:
         LOGS.error(f"Failed to rename download {download.gid}: {e}")
+
 
 def magnet_to_torrent(magnet_uri: str, save_path: str, timeout: int = 60):
     ses = lt.session()
