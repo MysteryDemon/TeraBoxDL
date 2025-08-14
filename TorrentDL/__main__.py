@@ -13,7 +13,7 @@ from asyncio import get_event_loop, gather
 from pyrogram import Client, idle
 from pyrogram.types import BotCommand
 from pyrogram.filters import command, user, private
-from TorrentDL import bot, Var, LOGS, bot_loop, scheduler
+from TorrentDL import bot, Var, LOGS, bot_loop, scheduler, MAX_CONCURRENT_DOWNLOADS
 from TorrentDL.helper.utils import is_aria2_running, start_aria2
 from TorrentDL.core.func_utils import new_task, editMessage
 from TorrentDL.helper.mediainfo import telegraph
