@@ -44,8 +44,6 @@ def start_aria2():
                 "--max-connection-per-server=16",
                 "--rpc-allow-origin-all=true",
                 "--force-sequential",
-                "--dht-listen-port=6881-6999",
-                "--enable-dht=true",
                 "--allow-overwrite=true",
                 "--continue=false",
                 "--daemon=false",
@@ -126,14 +124,6 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         "status_message": status_message,
         "cancelled": False
     }
-    
-    while not download.files and download.is_active:
-        await asyncio.sleep(2)
-        download.update()
-        
-    if not download.files:
-        await message.reply("❌ Download did not start or no files found.")
-        return
 
     while not download.is_complete:
         if active_downloads[download_id].get("cancelled"):
