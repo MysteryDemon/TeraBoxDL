@@ -26,8 +26,9 @@ LOGS = getLogger(__name__)
 
 active_downloads = {}
 last_upload_update = {}
-download_semaphore = Semaphore(5)
-download_lock = Semaphore(5)
+download_queue = asyncio.Queue()
+MAX_CONCURRENT_DOWNLOADS = 3
+download_semaphore = asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)
 last_upload_update = {}
 download_metadata_names = {}
 last_upload_progress = {}
