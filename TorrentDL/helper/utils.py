@@ -82,18 +82,17 @@ def add_download(url: str, output_path: str, headers: dict = None):
         "enable-http-pipelining": "true",
         "auto-file-renaming": "false",
         "allow-overwrite": "true",
+        "seed-time": "0",     
+        "max-upload-limit": "0"
     }
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
-
-    # Handle .torrent URLs
     if url.lower().endswith(".torrent"):
         temp_torrent = os.path.join("/tmp", os.path.basename(url))
         LOGS.info(f"Downloading .torrent file to {temp_torrent}...")
         urllib.request.urlretrieve(url, temp_torrent)
         download = aria2.add_torrent(temp_torrent, options=options)
         LOGS.info(f"Added torrent download: {output_path}")
-        # Optional: delete the temp torrent file immediately
         os.remove(temp_torrent)
     else:
         # Magnet link or direct URL
