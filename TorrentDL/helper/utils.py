@@ -35,11 +35,39 @@ def stream_aria2_logs(process):
 def generate_download_id():
     return uuid.uuid4().hex[:16]
 
+import libtorrent as lt
+import time
+import os
+
 def get_torrent_metadata_name(torrent_path):
-    download = aria2.add_torrent(torrent_path, options={"pause": "true"})
-    while not download.is_metadata:
-        time.sleep(0.2)
-        download = aria2.get_download(download.gid)
+    try:
+        # Case 1: It's a .torrent file
+        if os.path.exists(torrent_path) and torrent_path.endswith(".torrent"):
+            info = lt.torrent_info(torrent_path)
+            return info.name()
+
+        # Case 2: It's a magnet link
+        elif torrent_path.startswith("magnet:"):
+            ses = lt.session()
+            params = {
+                'save_path': './',  # temporary location
+                'storage_mode': lt.storage_mode_t.storage_mode_sparse
+            }
+            h = ses.add_torrent({'url': torrent_path, **params})
+
+            # Wait until metadata is fetched
+            while not h.has_metadata():
+                time.sleep(0.5)
+
+            return h.get_torrent_info().name()
+
+        else:
+            raise ValueError("Not a valid .torrent file or magnet link")
+
+    except Exception as e:
+        LOGS.error(f"Failed to read torrent metadata: {e}")
+        return None
+
 
 
 def start_aria2():
