@@ -7,7 +7,7 @@ from os import path as ospath, getcwd
 from pyrogram.handlers import MessageHandler 
 from pyrogram.filters import command
 from pyrogram import Client, filters, enums
-from bot import bot
+from TorrentDL import bot
 from __init__ import LOGGER
 from helpers.telegraph_helper import telegraph
 from helpers.utils import srm
