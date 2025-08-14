@@ -286,7 +286,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         return
 
     file_size = os.path.getsize(file_path)
-    caption = f"<b>{download.name}</b>\n"
+    caption = f"<b>{metadata_namee}</b>\n"
     ext = os.path.splitext(file_path)[1].lower()
     try:
         if ext in [".mp4", ".mkv", ".mov", ".avi"]:
