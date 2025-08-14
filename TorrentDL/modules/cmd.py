@@ -125,15 +125,12 @@ from urllib.parse import urlparse
 @new_task
 async def download_handler(_, message: Message):
     url = message.text.strip()
-
-    # Create output dir path
     output_dir = Var.DOWNLOAD_DIR
-
     waiting_msg = await message.reply("<b>Added Link To Queue</b>")
     async with download_lock:
         try:
             start_aria2() 
-            download = add_download_auto(url, output_dir)  # <-- Unified for HTTP/Magnet/Torrent
+            download = add_download(url, output_dir)
             await handle_download_and_send(message, download, message.from_user.id, LOGS)
         except Exception as e:
             LOGS.exception(f"❌ Error processing {url}: {e}")
