@@ -30,23 +30,21 @@ def stream_aria2_logs(process):
 def generate_download_id():
     return uuid.uuid4().hex[:16]
 
-async def await_metadata(download, LOGS, check_interval=2):
+async def wait_for_metadata(download, LOGS, timeout=60, check_interval=2):
+    start_time = time.time()
     LOGS.info(f"⏳ Waiting for metadata for: {download.name or download.gid}")
-    while True:
+    while not download.files or download.status == "waiting":
+        if time.time() - start_time > timeout:
+            LOGS.error(f"Metadata fetch timed out for: {download.name or download.gid}")
+            return False
         try:
             download.update()
         except Exception as e:
-            if "is not found" in str(e):
-                LOGS.info(f"Download removed while fetching metadata: {download.gid}")
-                return False
-            else:
-                LOGS.error(f"Error updating download for metadata: {e}")
-                return False
-        if download.total_length and download.status != "waiting":
-            LOGS.info(f"✅ Metadata fetched for: {download.name}")
-            return True
-
+            LOGS.error(f"Error updating download for metadata: {e}")
+            return False
         await asyncio.sleep(check_interval)
+    LOGS.info(f"✅ Metadata ready for: {download.name}")
+    return True
 
 def start_aria2():
     if not is_aria2_running():
@@ -143,7 +141,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         "cancelled": False
     }
 
-    metadata_ready = await await_metadata(download, LOGS)
+    metadata_ready = await wait_for_metadata(download, LOGS, timeout=120)
     if not metadata_ready:
         await message.reply(f"❌ Failed to fetch metadata for {download.name}")
         return
