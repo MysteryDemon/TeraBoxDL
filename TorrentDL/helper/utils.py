@@ -333,7 +333,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
 
 async def split_video_with_ffmpeg(input_path, output_prefix, split_size):
     try:
-        original_ext = os.path.splitext(input_path)[1].lower() or '.mp4'
+        original_ext = "mkv"
         start_time = datetime.now()
         proc = await asyncio.create_subprocess_exec(
             'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
