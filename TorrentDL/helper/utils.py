@@ -90,7 +90,6 @@ def add_download(url: str, output_path: str, headers: dict = None):
             LOGS.error(f"Failed to convert magnet to torrent: {url}")
             return None
         download = aria2.add_torrent(temp_torrent, options=options)
-        LOGS.info(f"Added magnet-as-torrent download: {output_path}")
         os.remove(temp_torrent)
     else:
         download = aria2.add_uris([url], options=options)
