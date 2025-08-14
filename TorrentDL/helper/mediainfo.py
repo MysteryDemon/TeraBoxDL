@@ -8,11 +8,8 @@ from pyrogram.handlers import MessageHandler
 from pyrogram.filters import command
 from pyrogram import Client, filters, enums
 from TorrentDL import bot
-from __init__ import LOGGER
+from TorrentDL import LOGS as LOGGER
 from helpers.telegraph_helper import telegraph
-from helpers.utils import srm
-from helpers.ffmpeg_helper import cmd_exec
-
 
 async def gen_mediainfo(client, message, link=None, media=None, mmsg=None):
     temp_send = await client.send_message(chat_id=message.chat.id,
@@ -106,3 +103,47 @@ async def mediainfo(client, message):
             return await srm(client, message, help_msg)
     else:
         return await srm(client, message, help_msg)
+
+
+async def cmd_exec(cmd, shell=False):
+    if shell:
+        proc = await create_subprocess_shell(cmd, stdout=PIPE, stderr=PIPE)
+    else:
+        proc = await create_subprocess_exec(*cmd, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = await proc.communicate()
+    stdout = stdout.decode().strip()
+    stderr = stderr.decode().strip()
+    LOGGER.info(f'Out :- {stdout}\nError :- {stderr}')
+    return stdout, stderr, proc.returncode
+
+async def srm(c, m, text, photo=None, video=None, markup=None, reply_id=None, delete=20, **kwargs):
+ try:
+   replyid = reply_id if reply_id else m.id
+   mid = m.message.id if hasattr(m, 'message') else replyid
+   tosend = m.message.chat.id if hasattr(m, 'message') else m.chat.id
+   if photo:
+      my = await c.send_photo(
+          chat_id=tosend,
+          photo=photo,
+          caption=text,
+          reply_to_message_id=mid,
+          reply_markup=markup,
+          **kwargs
+      )
+   elif video:
+       pass
+       
+   else:
+       my = await c.send_message(
+          chat_id=tosend,
+          text=text,
+          reply_to_message_id=mid,
+          reply_markup=markup,
+          **kwargs
+      )
+   if delete:
+      await delete_msg([my, m], dt=delete)
+   return my
+ except:
+   LOGGER.error('srm', exc_info=True)
+     
