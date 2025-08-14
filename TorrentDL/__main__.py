@@ -46,8 +46,8 @@ async def main():
         await telegraph.create_account()
         await bot.set_bot_commands([
             BotCommand("start", "Check Bot Alive Status !"),
-            BotCommand("folder", "Download TeraBox Folder Links.. !"),
             BotCommand("restart", "[ADMIN] Restart Bot.. !"),
+            BotCommand("mediainfo", "To Get Information Of Media")
         ])
         await restart()
         LOGS.info(r"""
