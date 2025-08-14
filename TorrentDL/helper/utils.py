@@ -48,7 +48,8 @@ def start_aria2():
                 "--continue=false",
                 "--daemon=false",
                 "--console-log-level=notice",
-                "--summary-interval=1"
+                "--summary-interval=1",
+                "--follow-torrent=mem"
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT
