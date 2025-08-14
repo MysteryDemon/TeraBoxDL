@@ -36,12 +36,9 @@ def generate_download_id():
     return uuid.uuid4().hex[:16]
 
 def get_torrent_metadata_name(torrent_path):
-    try:
-        info = lt.torrent_info(torrent_path)
-        return info.name() 
-    except Exception as e:
-        LOGS.error(f"Failed to read torrent metadata: {e}")
-        return None
+    download = aria2.add_torrent(torrent_path, options={"pause": "true"})
+    aria2.update()
+    return download.name
 
 def start_aria2():
     if not is_aria2_running():
