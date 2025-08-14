@@ -151,8 +151,6 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         real_files = [f for f in download.files if "[METADATA]" not in str(f.path)]
         if real_files:
             break
-        except Exception as e:
-            LOGS.error(f"Error updating download: {e}")
         await asyncio.sleep(2)
 
     if not real_files:
