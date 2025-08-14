@@ -17,6 +17,7 @@ from TorrentDL import bot, Var, LOGS, bot_loop, scheduler, MAX_CONCURRENT_DOWNLO
 from TorrentDL.helper.utils import is_aria2_running, start_aria2
 from TorrentDL.core.func_utils import new_task, editMessage
 from TorrentDL.helper.mediainfo import telegraph
+from TorrentDL.modules.cmd import queue_worker
 from asyncio import create_task, create_subprocess_exec, create_subprocess_shell, run as asyrun, all_tasks, gather, sleep as asleep
 
 from pyrogram import utils as pyroutils
