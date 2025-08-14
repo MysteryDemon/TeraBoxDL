@@ -4,19 +4,21 @@ import psutil
 import aria2p
 import time
 import asyncio
-from asyncio import Semaphore, create_task, gather
 from pyrogram.filters import command, private, user, create
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, Message
 from pyrogram import Client, filters
 from urllib.parse import urlparse
 from pyrogram import __version__ as pyroversion
-from TorrentDL import bot, Var, __version__, StartTime, LOGS, BUTTONS_PER_PAGE, aria2, active_downloads, download_queue, lock, download_semaphore
+from TorrentDL import bot, Var, __version__, StartTime, LOGS, BUTTONS_PER_PAGE, aria2, active_downloads, download_lock, lock
 from torrentdl import script
 from TorrentDL.core.func_utils import editMessage, sendMessage, new_task, is_valid_url, generate_buttons, get_readable_time
 from TorrentDL.helper.utils import wait_for_download, add_download, handle_download_and_send, start_aria2
 from TorrentDL.helper.mediainfo import srm, gen_mediainfo
 
-@bot.on_message(command('start') & private)
+def admin_only(_, __, message):
+    return message.from_user.id in Var.ADMINS
+
+@bot.on_message(command('start') & filters.private & filters.create(admin_only))
 @new_task
 async def start_msg(client, message: Message):
     uid = message.from_user.id
@@ -91,7 +93,7 @@ async def set_cb(client, query: CallbackQuery):
             user_id=query.from_user.id),
             reply_markup=InlineKeyboardMarkup(await generate_buttons()))
 
-@bot.on_message(filters.command(["mi", "mediainfo"]))
+@bot.on_message(filters.command(["mi", "mediainfo"]) & filters.create(admin_only))
 async def mediainfo(client, message):
     rply = message.reply_to_message
     help_msg = "<b>By replying to media:</b>"
@@ -117,29 +119,25 @@ async def mediainfo(client, message):
     else:
         return await srm(client, message, help_msg)
 
-async def queue_worker():
-    while True:
-        url, message = await download_queue.get()
-        async with download_semaphore:
-            try:
-                download = add_download(url, os.path.abspath(Var.DOWNLOAD_DIR), headers=None)
-                await handle_download_and_send(message, download, message.from_user.id, LOGS)
-            except Exception as e:
-                LOGS.exception(f"❌ Error processing {url}: {e}")
-                await message.reply(f"❌ Error: {e}")
-            finally:
-                download_queue.task_done()
-
 @bot.on_message(
     filters.regex(r"(https?://\S+|magnet:\?xt=urn:btih:[a-fA-F0-9]+)") &
-    ~filters.command(["start", "log"])
+    ~filters.command(["start", "log"]) &
+    filters.create(admin_only)
 )
 @new_task
 async def download_handler(_, message: Message):
-    urls = message.text.strip().split()
-    for url in urls:
-        await download_queue.put((url, message))
-        
+    url = message.text.strip()
+    parsed_url = urlparse(url)
+    filename = os.path.basename(parsed_url.path) or "output.file"
+    output_path = os.path.abspath(os.path.join(Var.DOWNLOAD_DIR, filename))
+    async with download_lock:
+        try:
+            download = add_download(url, output_path, headers=None)
+            await handle_download_and_send(message, download, message.from_user.id, LOGS)
+        except Exception as e:
+            LOGS.exception(f"❌ Error processing {url}: {e}")
+            await message.reply(f"❌ Error: {e}")
+
 @bot.on_message(filters.regex(r"^/c_[a-fA-F0-9]+$"))
 @new_task
 async def cancel_download(client, message: Message):
