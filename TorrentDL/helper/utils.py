@@ -1,5 +1,6 @@
 from TorrentDL import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, active_downloads, last_upload_update, last_upload_update, last_upload_progress, last_upload_speed
 from pyrogram import Client, filters
+import libtorrent as lt
 from pyrogram.types import Message
 import urllib.request
 from datetime import datetime
@@ -59,10 +60,6 @@ def start_aria2():
     else:
         LOGS.info("ℹ️ aria2c is already running.")
 
-import os
-import urllib.request
-from TorrentDL import LOGS, aria2
-
 def add_download(url: str, output_path: str, headers: dict = None):
     """
     Add a download to aria2. Supports:
@@ -98,8 +95,32 @@ def add_download(url: str, output_path: str, headers: dict = None):
         # Magnet link or direct URL
         download = aria2.add_uris([url], options=options)
         LOGS.info(f"Added direct/magnet download: {output_path}")
-
     return download
+
+def magnet_to_torrent(magnet_uri: str, save_path: str, timeout: int = 60):
+    ses = lt.session()
+    ses.listen_on(6881, 6891)
+    params = {
+        'save_path': os.path.dirname(save_path),
+        'storage_mode': lt.storage_mode_t(2),
+    }
+    handle = lt.add_magnet_uri(ses, magnet_uri, params)
+    LOGS.info(f"Fetching metadata for magnet: {magnet_uri}")
+    start = time.time()
+    while not handle.has_metadata():
+        time.sleep(1)
+        if time.time() - start > timeout:
+            LOGS.error("Timeout: Could not fetch metadata for magnet.")
+            return None
+    
+    torrent_info = handle.get_torrent_info()
+    torrent_file_path = save_path if save_path.endswith(".torrent") else save_path + ".torrent"
+    with open(torrent_file_path, "wb") as f:
+        f.write(lt.bencode(lt.create_torrent(torrent_info).generate()))
+    
+    LOGS.info(f"Magnet converted to torrent: {torrent_file_path}")
+    ses.pause()
+    return torrent_file_path
 
 async def wait_for_download(download):
     while download.is_active:
