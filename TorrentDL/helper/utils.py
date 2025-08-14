@@ -195,10 +195,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         "status_message": status_message,
         "cancelled": False
     }
-    completed = download
-    file_path = completed.files[0].path if completed.files else None
     metadata_name = download_metadata_names.get(getattr(download, 'gid', None), None)
-    ext = os.path.splitext(file_path)[1].lower()
     while not download.is_complete:
         if active_downloads[download_id].get("cancelled"):
             LOGS.info(f"Download cancelled for ID: {download_id}")
@@ -230,7 +227,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         filled_slots = int(progress / (100 / bar_length))
         status_bar = f"{'⬢' * filled_slots}{'⬡' * (bar_length - filled_slots)}"
         status_text = (
-            f"<i><b>{metadata_name}{ext}</b></i>\n\n"
+            f"<i><b>{metadata_name}.mkv</b></i>\n\n"
             f"<b>Task By {message.from_user.first_name}</b>  ( #ID{user_id} )\n"
             f"┟ [{status_bar}] {progress:.2f}%\n"
             f"┠ <b>Processed</b> → <i>{format_size(download.completed_length)} of {format_size(download.total_length)}</i>\n"
@@ -277,7 +274,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
     elapsed_time = datetime.now() - start_time
     elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
     status_text = (
-        f"<i><b>{metadata_name}{ext}</b></i>\n\n"
+        f"<i><b>{metadata_name}.mkv</b></i>\n\n"
         f"<b>Task By {message.from_user.first_name}</b>  ( #ID{user_id} )\n"
         f"┠ <b>Status</b> → Completed\n"
         f"┠ <b>Time Taken</b> → {elapsed_minutes}m{elapsed_seconds}s\n"
@@ -289,7 +286,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         return
 
     file_size = os.path.getsize(file_path)
-    caption = f"<b>{metadata_name}{ext}</b>\n"
+    caption = f"<b>{metadata_name}.mkv</b>\n"
     ext = os.path.splitext(file_path)[1].lower()
     try:
         if ext in [".mp4", ".mkv", ".mov", ".avi"]:
@@ -381,7 +378,7 @@ async def upload_progress(current, total, status_message, file_name, user_name, 
     status_bar = f"{'⬢' * filled_slots}{'⬡' * (bar_length - filled_slots)}"
     if (now - last_time >= UPDATE_INTERVAL) or (progress - last_percent >= MIN_PROGRESS_STEP) or (progress == 100):
         status_text = (
-            f"<i><b>{metadata_name}{ext}</b></i>\n\n"
+            f"<i><b>{metadata_name}.mkv</b></i>\n\n"
             f"<b>Task By {user_name}</b>  ( #ID{user_id} )\n"
             f"┟ [{status_bar}] {progress:.2f}%\n"
             f"┠ <b>Processed</b> → <i>{format_size(current)} of {format_size(total)}</i>\n"
