@@ -1,6 +1,5 @@
 from TorrentDL import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, active_downloads, last_upload_update, last_upload_update, last_upload_progress, last_upload_speed
 from pyrogram import Client, filters
-from TorrentDL import bot
 from pyrogram.types import Message
 from datetime import datetime
 from threading import Thread
@@ -31,29 +30,6 @@ def stream_aria2_logs(process):
 def generate_download_id():
     return uuid.uuid4().hex[:16]
 
-async def wait_for_real_metadata(download, LOGS, timeout=120, check_interval=2):
-    start_time = time.time()
-    while True:
-        try:
-            download.update()
-        except Exception as e:
-            LOGS.error(f"Error updating download: {e}")
-            return False
-
-        # Wait until Aria2 reports the real file length, not the [METADATA] placeholder
-        if download.total_length and download.files:
-            real_file = download.files[0]
-            file_name = str(real_file.path)
-            if not file_name.startswith("[METADATA]"):
-                LOGS.info(f"✅ Real metadata ready: {file_name}")
-                return True
-
-        if time.time() - start_time > timeout:
-            LOGS.error(f"Timeout fetching metadata for: {download.name}")
-            return False
-
-        await asyncio.sleep(check_interval)
-        
 def start_aria2():
     if not is_aria2_running():
         LOGS.info("🔄 Starting aria2c with logging...")
@@ -96,10 +72,7 @@ def add_download(url: str, output_path: str, headers: dict = None):
     }
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
-    if url.startswith("magnet:") or url.lower().endswith(".torrent"):
-        download = aria2.add_magnet(url, options=options) if url.startswith("magnet:") else aria2.add_torrent(url, options=options)
-    else:
-        download = aria2.add_uris([url], options=options)
+    download = aria2.add_uris([url], options=options)
     LOGS.info(f"Added to aria2: {output_path}")
     return download
 
@@ -148,11 +121,6 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         "status_message": status_message,
         "cancelled": False
     }
-
-    metadata_ready = await wait_for_real_metadata(download, LOGS)
-    if not metadata_ready:
-        await message.reply(f"❌ Failed to fetch metadata for {download.name}")
-        return
 
     while not download.is_complete:
         if active_downloads[download_id].get("cancelled"):
@@ -341,113 +309,3 @@ async def upload_progress(current, total, status_message, file_name, user_name, 
             last_upload_progress[upload_id] = progress
         except Exception as e:
             LOGS.error(f"Failed to update upload status message: {e}")
-
-import os
-import re
-import aiofiles
-import aiohttp
-import asyncio
-from shlex import split
-from subprocess import PIPE, STDOUT, run
-
-from pyrogram import Client
-from pyrogram.types import Message
-
-SECTION_DICT = {"General": "🗒", "Video": "🎞", "Audio": "🔊", "Text": "🔠", "Menu": "🗃"}
-
-
-def parseinfo(out, size):
-    tc, trigger = "", False
-    size_line = f"File size                                 : {size / (1024*1024):.2f} MiB"
-    for line in out.split("\n"):
-        for section, emoji in SECTION_DICT.items():
-            if line.startswith(section):
-                trigger = True
-                if not line.startswith("General"):
-                    tc += "\n"
-                tc += f"{emoji} {line.replace('Text', 'Subtitle')}\n"
-                break
-        if line.startswith("File size"):
-            line = size_line
-        if trigger:
-            trigger = False
-        else:
-            tc += line + "\n"
-    return tc
-
-
-async def gen_mediainfo(client: Client, message: Message, link: str = None, media=None):
-    download_folder = "mediainfo"
-    os.makedirs(download_folder, exist_ok=True)
-    des_path = None
-    file_size = 0
-
-    # --- Handle direct download links ---
-    if link:
-        filename = re.search(r".+/(.+)", link).group(1)
-        des_path = os.path.join(download_folder, filename)
-        headers = {"User-Agent": "Mozilla/5.0", "Range": "bytes=0-1048575"}  # first 1MB
-        async with aiohttp.ClientSession() as session:
-            async with session.get(link, headers=headers) as resp:
-                file_size = int(resp.headers.get("Content-Length", 0))
-                async with aiofiles.open(des_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(1024*1024):
-                        await f.write(chunk)
-                        break
-
-    # --- Handle Telegram media ---
-    elif media:
-        des_path = os.path.join(download_folder, media.file_name)
-        file_size = media.file_size
-
-        # Small files: download fully
-        if file_size <= 5*1024*1024:
-            await message.reply_to_message.download(file_name=des_path)
-        # Large files: stream first 5 MB
-        else:
-            async with aiofiles.open(des_path, "wb") as f:
-                limit = 5*1024*1024  # 5 MB
-                chunk_size = 512*1024  # 512 KB
-                offset = 0
-                while offset < limit:
-                    # Pyrogram's download_media does not support partial by default,
-                    # so we fetch in full chunks and slice manually
-                    data = await client.download_media(message.reply_to_message)
-                    await f.write(data[offset:offset+chunk_size])
-                    offset += chunk_size
-
-    else:
-        return None, "No link or media provided."
-
-    # --- Run MediaInfo CLI ---
-    result = run(split(f'mediainfo "{des_path}"'), stdout=PIPE, stderr=STDOUT, text=True)
-    info = parseinfo(result.stdout, file_size)
-
-    # Clean up temp file if it was downloaded
-    if des_path and os.path.exists(des_path) and link:
-        os.remove(des_path)
-
-    return info, None
-
-@bot.on_message(filters.command("mediainfo") & filters.private)
-async def mediainfo_cmd(client: Client, message: Message):
-    reply = message.reply_to_message
-    temp_msg = await message.reply("<i>Generating MediaInfo...</i>")
-
-    if reply and reply.text:
-        link = reply.text
-        info, error = await gen_mediainfo(link=link)
-    elif reply and (file := reply.document or reply.video or reply.audio):
-        info, error = await gen_mediainfo(client, message, media=file)
-    else:
-        await temp_msg.edit("Reply to a media file or send a link.")
-        return
-
-    if error:
-        await temp_msg.edit(f"<b>Error:</b> {error}")
-    else:
-        # Limit Telegram message size
-        if len(info) > 4000:
-            info = info[:3990] + "\n\n...truncated..."
-        await temp_msg.edit(f"<pre>{info}</pre>", disable_web_page_preview=True)
-
