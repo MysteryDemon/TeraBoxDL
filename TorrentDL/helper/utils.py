@@ -1,4 +1,4 @@
-from TorrentDL import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, active_downloads, last_upload_update, last_upload_update, last_upload_progress, last_upload_speed
+from TorrentDL import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, active_downloads, last_upload_update, last_upload_progress, last_upload_speed
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from datetime import datetime
@@ -61,13 +61,13 @@ def start_aria2():
 def add_download(url: str, output_path: str, headers: dict = None):
     if not output_path:
         output_path = f"./downloads/{generate_download_id()}"
-    
+
     # Ensure it has a directory
     directory = os.path.dirname(output_path)
     if not directory:
         directory = "./downloads"
         output_path = os.path.join(directory, os.path.basename(output_path))
-        
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     options = {
         "dir": os.path.dirname(output_path),
@@ -195,54 +195,63 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
             LOGS.error(f"Error updating completed download: {e}")
             await message.reply(f"❌ Error updating download: {e}")
             return
-            
+
     if not completed.files:
         await message.reply("❌ No files found in download.")
         return
 
+    found_file = False
     for file_obj in completed.files:
         if "[METADATA]" in str(file_obj.path):
             continue
 
-            
         file_path = file_obj.path
         if not file_path or not os.path.exists(file_path):
             LOGS.error(f"File not found: {file_path}")
             await message.reply(f"❌ File not found: {file_path}")
-            continue
-            
-    elapsed_time = datetime.now() - start_time
-    elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
-    status_text = (
-        f"<i><b>{download.name}</b></i>\n\n"
-        f"<b>Task By {message.from_user.first_name}</b>  ( #ID{user_id} )\n"
-        f"┠ <b>Status</b> → Completed\n"
-        f"┠ <b>Time Taken</b> → {elapsed_minutes}m{elapsed_seconds}s\n"
-        f"┖ <b>Engine</b> → Aria2 v1.37.0\n"
-    )
-    await update_status_message(status_message, status_text)
-    if not file_path or not os.path.exists(file_path):
-        await message.reply(f"❌ File not found: {file_path}")
-        return
+            continue  # skip to next file
 
-    file_size = os.path.getsize(file_path)
-    caption = f"<b>{download.name}</b>\n"
-    ext = os.path.splitext(file_path)[1].lower()
-    try:
-        if ext in [".mp4", ".mkv", ".mov", ".avi"]:
-            if file_size > SPLIT_SIZE:
-                split_files = await split_video_with_ffmpeg(file_path, os.path.splitext(file_path)[0], SPLIT_SIZE)
-                for i, part in enumerate(split_files):
-                    part_caption = f"{caption}\n\nPart {i+1}/{len(split_files)}"
+        found_file = True  # Mark as found
+
+        elapsed_time = datetime.now() - start_time
+        elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
+        status_text = (
+            f"<i><b>{download.name}</b></i>\n\n"
+            f"<b>Task By {message.from_user.first_name}</b>  ( #ID{user_id} )\n"
+            f"┠ <b>Status</b> → Completed\n"
+            f"┠ <b>Time Taken</b> → {elapsed_minutes}m{elapsed_seconds}s\n"
+            f"┖ <b>Engine</b> → Aria2 v1.37.0\n"
+        )
+        await update_status_message(status_message, status_text)
+
+        file_size = os.path.getsize(file_path)
+        caption = f"<b>{download.name}</b>\n"
+        ext = os.path.splitext(file_path)[1].lower()
+        try:
+            if ext in [".mp4", ".mkv", ".mov", ".avi"]:
+                if file_size > SPLIT_SIZE:
+                    split_files = await split_video_with_ffmpeg(file_path, os.path.splitext(file_path)[0], SPLIT_SIZE)
+                    for i, part in enumerate(split_files):
+                        part_caption = f"{caption}\n\nPart {i+1}/{len(split_files)}"
+                        upload_id = uuid.uuid4().hex
+                        msg = await message.reply_document(
+                            part,
+                            caption=part_caption,
+                            progress=upload_progress,
+                            progress_args=(status_message, download.name, message.from_user.first_name, user_id, upload_id)
+                        )
+                        await message._client.send_document(Var.LOG_CHANNEL, msg.document.file_id, caption=part_caption)
+                        os.remove(part)
+                else:
                     upload_id = uuid.uuid4().hex
+                    part_caption = caption
                     msg = await message.reply_document(
-                        part,
-                        caption=part_caption,
+                        file_path,
+                        caption=caption,
                         progress=upload_progress,
                         progress_args=(status_message, download.name, message.from_user.first_name, user_id, upload_id)
                     )
                     await message._client.send_document(Var.LOG_CHANNEL, msg.document.file_id, caption=part_caption)
-                    os.remove(part)
             else:
                 upload_id = uuid.uuid4().hex
                 part_caption = caption
@@ -253,21 +262,15 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
                     progress_args=(status_message, download.name, message.from_user.first_name, user_id, upload_id)
                 )
                 await message._client.send_document(Var.LOG_CHANNEL, msg.document.file_id, caption=part_caption)
-        else:
-            upload_id = uuid.uuid4().hex
-            part_caption = caption 
-            msg = await message.reply_document(
-                file_path,
-                caption=caption,
-                progress=upload_progress,
-                progress_args=(status_message, download.name, message.from_user.first_name, user_id, upload_id)
-            )
-            await message._client.send_document(Var.LOG_CHANNEL, msg.document.file_id, caption=part_caption)
-        LOGS.info(f"📤 Sent file to user: {file_path}")
-        await status_message.delete()
-    except Exception as e:
-        LOGS.error(f"❌ Failed to send file: {e}")
-        await message.reply(f"❌ Failed to send file: {e}")
+            LOGS.info(f"📤 Sent file to user: {file_path}")
+            await status_message.delete()
+        except Exception as e:
+            LOGS.error(f"❌ Failed to send file: {e}")
+            await message.reply(f"❌ Failed to send file: {e}")
+
+    if not found_file:
+        await message.reply("❌ No valid files found to send.")
+        return
 
 async def split_video_with_ffmpeg(input_path, output_prefix, split_size):
     try:
