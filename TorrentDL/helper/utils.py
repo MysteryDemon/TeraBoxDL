@@ -73,7 +73,7 @@ def clean_torrent_name(raw_name):
     name_no_ext = re.sub(r'\.[^.]+$', '', raw_name)
     name_cleaned = name_no_ext.replace('.', ' ')
     group_match = re.search(r'\b(CR|WEB-DL|BluRay|HDRip|HDTV|AMZN|HIDI|ADN|NF|CTHP|DSNP)\b', name_cleaned, re.IGNORECASE)
-    group_tag = f"[{group_match.group(1).upper()}]" if group_match else "[ANI-DL]"
+    group_tag = f"[{group_match.group(1).upper()}]" if group_match else ""
     ep_match = re.search(r'\b(S\d{1,2}E\d{1,2})\b', name_cleaned, re.IGNORECASE)
     ep_tag = ep_match.group(1) if ep_match else ""
     res_match = re.search(r'\b(\d{3,4}p)\b', name_cleaned)
@@ -211,8 +211,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
             else:
                 LOGS.error(f"Error updating download: {e}")
                 break
-                
-        metadata_name = download_metadata_names.get(getattr(download, 'gid', None), None)
+
         progress = download.progress
         elapsed_time = datetime.now() - start_time
         elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
@@ -228,7 +227,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         filled_slots = int(progress / (100 / bar_length))
         status_bar = f"{'⬢' * filled_slots}{'⬡' * (bar_length - filled_slots)}"
         status_text = (
-            f"<i><b>{metadata_name}.mkv</b></i>\n\n"
+            f"<i><b>{metadata_name}</b></i>\n\n"
             f"<b>Task By {message.from_user.first_name}</b>  ( #ID{user_id} )\n"
             f"┟ [{status_bar}] {progress:.2f}%\n"
             f"┠ <b>Processed</b> → <i>{format_size(download.completed_length)} of {format_size(download.total_length)}</i>\n"
@@ -275,7 +274,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
     elapsed_time = datetime.now() - start_time
     elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
     status_text = (
-        f"<i><b>{metadata_name}.mkv</b></i>\n\n"
+        f"<i><b>{metadata_name}</b></i>\n\n"
         f"<b>Task By {message.from_user.first_name}</b>  ( #ID{user_id} )\n"
         f"┠ <b>Status</b> → Completed\n"
         f"┠ <b>Time Taken</b> → {elapsed_minutes}m{elapsed_seconds}s\n"
@@ -285,10 +284,9 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
     if not file_path or not os.path.exists(file_path):
         await message.reply(f"❌ File not found: {file_path}")
         return
-        
-    metadata_name = download_metadata_names.get(getattr(download, 'gid', None), None)
+
     file_size = os.path.getsize(file_path)
-    caption = f"<b>{metadata_name}</b>\n"
+    caption = f"<b>{metadata_name.mkv}</b>\n"
     ext = os.path.splitext(file_path)[1].lower()
     try:
         if ext in [".mp4", ".mkv", ".mov", ".avi"]:
@@ -375,13 +373,12 @@ async def upload_progress(current, total, status_message, file_name, user_name, 
     last_upload_speed[upload_id] = (current, now)
     last_time = last_upload_update.get(upload_id, 0)
     last_percent = last_upload_progress.get(upload_id, 0)
-    metadata_name = download_metadata_names.get(getattr(download, 'gid', None), None)
     bar_length = 12
     filled_slots = int(progress / (100 / bar_length))
     status_bar = f"{'⬢' * filled_slots}{'⬡' * (bar_length - filled_slots)}"
     if (now - last_time >= UPDATE_INTERVAL) or (progress - last_percent >= MIN_PROGRESS_STEP) or (progress == 100):
         status_text = (
-            f"<i><b>{metadata_name}.mkv</b></i>\n\n"
+            f"<i><b>{file_name}</b></i>\n\n"
             f"<b>Task By {user_name}</b>  ( #ID{user_id} )\n"
             f"┟ [{status_bar}] {progress:.2f}%\n"
             f"┠ <b>Processed</b> → <i>{format_size(current)} of {format_size(total)}</i>\n"
