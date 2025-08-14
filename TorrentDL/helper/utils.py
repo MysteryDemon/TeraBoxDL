@@ -12,6 +12,13 @@ import uuid
 import os
 import math
 
+def generate_download_id():
+    return uuid.uuid4().hex[:16]
+
+def stream_aria2_logs(process):
+    for line in process.stdout:
+        LOGS.info(f"[aria2c] {line.decode().strip()}")
+
 def is_aria2_running():
     for proc in psutil.process_iter(attrs=["name", "cmdline"]):
         try:
@@ -22,13 +29,6 @@ def is_aria2_running():
         except (psutil.NoSuchProcess, psutil.AccessDenied, TypeError):
             continue
     return False
-
-def stream_aria2_logs(process):
-    for line in process.stdout:
-        LOGS.info(f"[aria2c] {line.decode().strip()}")
-
-def generate_download_id():
-    return uuid.uuid4().hex[:16]
 
 def start_aria2():
     if not is_aria2_running():
@@ -194,6 +194,35 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
             LOGS.error(f"Error updating completed download: {e}")
             await message.reply(f"❌ Error updating download: {e}")
             return
+
+    file_paths = [f.path for f in completed.files] if completed.files else []
+    if not file_paths:
+        await message.reply(f"❌ No files found for torrent: {download.name}")
+        return
+
+    # Find a valid media file
+    target_extensions = [".mkv", ".mp4", ".avi", ".mov"]
+    file_path = None
+    for path in file_paths:
+        if any(path.lower().endswith(ext) for ext in target_extensions):
+            if os.path.exists(path):
+                file_path = path
+                break
+        # Check directories
+        if os.path.isdir(path):
+            for root, _, files in os.walk(path):
+                for file in files:
+                    if any(file.lower().endswith(ext) for ext in target_extensions):
+                        full_path = os.path.join(root, file)
+                        if os.path.exists(full_path):
+                            file_path = full_path
+                            break
+                if file_path:
+                    break
+
+    if not file_path:
+        await message.reply(f"❌ No valid media file found in torrent: {download.name}")
+        return
             
     file_path = completed.files[0].path if completed.files else None
     elapsed_time = datetime.now() - start_time
