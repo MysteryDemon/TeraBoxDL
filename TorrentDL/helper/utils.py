@@ -438,7 +438,7 @@ async def mediainfo_cmd(client: Client, message: Message):
         link = reply.text
         info, error = await gen_mediainfo(link=link)
     elif reply and (file := reply.document or reply.video or reply.audio):
-        info, error = await gen_mediainfo(media=file)
+        info, error = await gen_mediainfo(client, message, media=file)
     else:
         await temp_msg.edit("Reply to a media file or send a link.")
         return
