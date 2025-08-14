@@ -151,7 +151,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         real_files = [f for f in download.files if "[METADATA]" not in str(f.path)]
         if real_files:
             break
-        await asyncio.sleep(2)
+        await asyncio.sleep(10)
 
     if not real_files:
         await message.reply("❌ No actual files were downloaded yet. Torrent may have no peers.")
