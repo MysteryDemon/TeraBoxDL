@@ -127,3 +127,12 @@ def convertBytes(sz) -> str:
         sz /= 2**10
         ind += 1
     return f"{round(sz, 2)} {Units[ind]}B"
+
+def get_readable_time(seconds):
+    periods = [('d', 86400), ('h', 3600), ('m', 60), ('s', 1)]
+    result = ''
+    for period_name, period_seconds in periods:
+        if seconds >= period_seconds:
+            period_value, seconds = divmod(seconds, period_seconds)
+            result += f'{int(period_value)}{period_name}'
+    return result
