@@ -187,7 +187,17 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
             await message.reply(f"❌ Error updating download: {e}")
             return
             
-    file_path = completed.files[0].path if completed.files else None
+    if not completed.files:
+        await message.reply("❌ No files found in download.")
+        return
+
+    for file_obj in completed.files:
+        file_path = file_obj.path
+        if not file_path or not os.path.exists(file_path):
+            LOGS.error(f"File not found: {file_path}")
+            await message.reply(f"❌ File not found: {file_path}")
+            continue
+            
     elapsed_time = datetime.now() - start_time
     elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
     status_text = (
