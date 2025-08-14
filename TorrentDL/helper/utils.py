@@ -227,7 +227,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         filled_slots = int(progress / (100 / bar_length))
         status_bar = f"{'⬢' * filled_slots}{'⬡' * (bar_length - filled_slots)}"
         status_text = (
-            f"<i><b>{download.name}</b></i>\n\n"
+            f"<i><b>{metadata_name}</b></i>\n\n"
             f"<b>Task By {message.from_user.first_name}</b>  ( #ID{user_id} )\n"
             f"┟ [{status_bar}] {progress:.2f}%\n"
             f"┠ <b>Processed</b> → <i>{format_size(download.completed_length)} of {format_size(download.total_length)}</i>\n"
@@ -274,7 +274,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
     elapsed_time = datetime.now() - start_time
     elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
     status_text = (
-        f"<i><b>{download.name}</b></i>\n\n"
+        f"<i><b>{metadata_name}</b></i>\n\n"
         f"<b>Task By {message.from_user.first_name}</b>  ( #ID{user_id} )\n"
         f"┠ <b>Status</b> → Completed\n"
         f"┠ <b>Time Taken</b> → {elapsed_minutes}m{elapsed_seconds}s\n"
@@ -286,7 +286,7 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         return
 
     file_size = os.path.getsize(file_path)
-    caption = f"<b>{metadata_namee}</b>\n"
+    caption = f"<b>{metadata_name}</b>\n"
     ext = os.path.splitext(file_path)[1].lower()
     try:
         if ext in [".mp4", ".mkv", ".mov", ".avi"]:
