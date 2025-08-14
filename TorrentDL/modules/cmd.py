@@ -123,19 +123,20 @@ async def mediainfo(client, message):
 @new_task
 async def download_handler(_, message: Message):
     url = message.text.strip()
-    output_dir = Var.DOWNLOAD_DIR
+    parsed_url = urlparse(url)
+    filename = os.path.basename(parsed_url.path) or "output.file"
+    output_path = os.path.abspath(os.path.join(Var.DOWNLOAD_DIR, filename))
     waiting_msg = await message.reply("<b>Added Link To Queue</b>")
     async with download_lock:
         try:
-            start_aria2() 
-            download = add_download(url, output_dir)
+            download = add_download(url, output_path, headers=None)  # headers=None since Aria2 handles it
             await handle_download_and_send(message, download, message.from_user.id, LOGS)
         except Exception as e:
             LOGS.exception(f"❌ Error processing {url}: {e}")
             await message.reply(f"❌ Error: {e}")
         finally:
             await waiting_msg.delete()
-
+            
 @bot.on_message(filters.regex(r"^/c_[a-fA-F0-9]+$"))
 @new_task
 async def cancel_download(client, message: Message):
