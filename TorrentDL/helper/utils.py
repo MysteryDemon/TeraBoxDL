@@ -59,6 +59,11 @@ def start_aria2():
         LOGS.info("ℹ️ aria2c is already running.")
         
 def add_download(url: str, output_path: str, headers: dict = None):
+    if not output_path or os.path.dirname(output_path) == '':
+        default_dir = Var.DOWNLOAD_DIR if hasattr(Var, 'DOWNLOAD_DIR') else '/downloads'
+        file_name = os.path.basename(output_path) or f"download_{uuid.uuid4().hex[:16]}"
+        output_path = os.path.join(default_dir, file_name)
+        
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     options = {
         "dir": os.path.dirname(output_path),
