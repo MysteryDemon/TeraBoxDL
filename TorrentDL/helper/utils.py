@@ -1,6 +1,7 @@
-from TeraBoxDownloader import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, resolver, active_downloads, last_upload_update, last_upload_update, last_upload_progress, last_upload_speed
+from TorrentDL import LOGS, UPDATE_INTERVAL, MIN_PROGRESS_STEP, SPLIT_SIZE, Var, aria2, active_downloads, last_upload_update, last_upload_update, last_upload_progress, last_upload_speed
 from pyrogram import Client, filters
 from pyrogram.types import Message
+import urllib.request
 from datetime import datetime
 from threading import Thread
 import subprocess
@@ -58,7 +59,7 @@ def start_aria2():
     else:
         LOGS.info("ℹ️ aria2c is already running.")
 
-def add_download(url: str, output_path: str, headers: dict = None):
+async def add_download(url: str, output_path: str, headers: dict = None):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     options = {
         "dir": os.path.dirname(output_path),
@@ -72,8 +73,15 @@ def add_download(url: str, output_path: str, headers: dict = None):
     }
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
-    download = aria2.add_uris([url], options=options)
-    LOGS.info(f"Added to aria2: {output_path}")
+    if url.lower().endswith(".torrent"):
+        temp_torrent = os.path.join("/tmp", os.path.basename(url))
+        LOGS.info(f"Downloading .torrent file to {temp_torrent}...")
+        urllib.request.urlretrieve(url, temp_torrent)
+        download = aria2.add_torrent(temp_torrent, options=options)
+        LOGS.info(f"Added torrent download: {output_path}")
+    else:
+        download = aria2.add_uris([url], options=options)
+        LOGS.info(f"Added direct/magnet download: {output_path}")
     return download
 
 async def wait_for_download(download):
