@@ -71,17 +71,11 @@ def add_download(url: str, output_path: str, headers: dict = None):
         "enable-http-pipelining": "true",
         "auto-file-renaming": "false",
         "allow-overwrite": "true",
-        "follow-torrent": "mem",
-        "bt-save-metadata": "false",
-        "bt-enable-lpd": "true",
-        "bt-seed-unverified": "true"
     }
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
-    if url.startswith("magnet:"):
-        download = aria2.add_magnet(url, options=options)
-    elif url.lower().endswith(".torrent"):
-        download = aria2.add_torrent(url, options=options)
+    if url.startswith("magnet:") or url.lower().endswith(".torrent"):
+        download = aria2.add_magnet(url, options=options) if url.startswith("magnet:") else aria2.add_torrent(url, options=options)
     else:
         download = aria2.add_uris([url], options=options)
     LOGS.info(f"Added to aria2: {output_path}")
@@ -132,64 +126,45 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         "status_message": status_message,
         "cancelled": False
     }
-
-    # --- Wait for actual file(s) to appear, skip [METADATA] ---
-    real_files = []
-    timeout = 300  # seconds
-    start_wait = time.time()
-
-    while download.is_active and (time.time() - start_wait) < timeout:
-        if active_downloads[download_id].get("cancelled"):
-            LOGS.info(f"Download cancelled for ID: {download_id}")
-            break
-
-        try:
-            download.update()
-            real_files = [f for f in download.files if "[METADATA]" not in str(f.path)]
-            if real_files:
-                break  # real file detected
-        except Exception as e:
-            LOGS.error(f"Error updating download: {e}")
+    
+    while not download.files and download.is_active:
         await asyncio.sleep(2)
-
-    if not real_files:
-        await message.reply("❌ No actual files were downloaded yet. Torrent may have no peers or is dead.")
+        download.update()
+        
+    if not download.files:
+        await message.reply("❌ Download did not start or no files found.")
         return
 
-    file_path = real_files[0].path
-    if not os.path.exists(file_path):
-        await message.reply(f"❌ File not found: {file_path}")
-        return
-
-    file_size = os.path.getsize(file_path)
-    caption = f"<b>{download.name}</b>\n"
-    ext = os.path.splitext(file_path)[1].lower()
-
-    # --- Continue monitoring download progress until complete ---
     while not download.is_complete:
         if active_downloads[download_id].get("cancelled"):
             LOGS.info(f"Download cancelled for ID: {download_id}")
             break
 
+        await asyncio.sleep(15)
         try:
             download.update()
         except Exception as e:
-            LOGS.error(f"Error updating download: {e}")
-            break
+            if "is not found" in str(e):
+                LOGS.info(f"Download was cancelled or removed: {download.gid}")
+                break
+            else:
+                LOGS.error(f"Error updating download: {e}")
+                break
 
         progress = download.progress
         elapsed_time = datetime.now() - start_time
         elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
-        eta_seconds = getattr(download, "eta", 0)
-        eta_seconds = int(eta_seconds.total_seconds()) if hasattr(eta_seconds, "total_seconds") else int(eta_seconds)
-        eta_seconds = max(0, eta_seconds)
-        eta_min, eta_sec = divmod(eta_seconds, 60)
-        speed = getattr(download, "download_speed", 0)
+        if hasattr(download, "eta") and download.eta:
+            eta_seconds = download.eta.total_seconds() if hasattr(download.eta, "total_seconds") else float(download.eta)
+            eta_seconds = max(0, int(eta_seconds))
+        else:
+            eta_seconds = 0
+        eta_min, eta_sec = divmod(int(eta_seconds), 60)
+        speed = download.download_speed if hasattr(download, "download_speed") else 0
         remaining_seconds = max(0, int(eta_seconds))
         bar_length = 12
         filled_slots = int(progress / (100 / bar_length))
         status_bar = f"{'⬢' * filled_slots}{'⬡' * (bar_length - filled_slots)}"
-
         status_text = (
             f"<i><b>{download.name}</b></i>\n\n"
             f"<b>Task By {message.from_user.first_name}</b>  ( #ID{user_id} )\n"
@@ -198,59 +173,91 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
             f"┠ <b>Status</b> → <b>Download</b>\n"
             f"┠ <b>Speed</b> → <i>{format_size(speed)}</i>/s\n"
             f"┠ <b>Time</b> → <i>{elapsed_minutes}m{elapsed_seconds}s of {eta_min}m{eta_sec}s ({remaining_seconds}s left)</i>\n"
+            f"┠ <b>Engine</b> → <i>Aria2 v1.37.0</i>\n"
             f"┖ <b>Stop</b> → <i>/c_{download_id}</i>\n"
         )
+        while True:
+            try:
+                await update_status_message(status_message, status_text)
+                break
+            except Exception as e:
+                if type(e).__name__ == "FloodWait":
+                    LOGS.error(f"Flood wait detected! Sleeping for {e.value} seconds")
+                    await asyncio.sleep(e.value)
+                else:
+                    LOGS.error(f"Failed to update status message: {e}")
+                    break
 
-        try:
-            await update_status_message(status_message, status_text)
-        except Exception as e:
-            if type(e).__name__ == "FloodWait":
-                LOGS.error(f"Flood wait detected! Sleeping for {e.value} seconds")
-                await asyncio.sleep(e.value)
-            else:
-                LOGS.error(f"Failed to update status message: {e}")
-
-        await asyncio.sleep(15)
-
-    # --- Final update to ensure download is complete ---
+    completed = download
     try:
-        download.update()
+        completed.update()
     except Exception as e:
-        LOGS.error(f"Error updating completed download: {e}")
-        await message.reply(f"❌ Error updating download: {e}")
+        if "is not found" in str(e):
+            LOGS.info(f"Download was cancelled or removed: {completed.gid}")
+            return
+        else:
+            LOGS.error(f"Error updating completed download: {e}")
+            await message.reply(f"❌ Error updating download: {e}")
+            return
+            
+    file_path = completed.files[0].path if completed.files else None
+    elapsed_time = datetime.now() - start_time
+    elapsed_minutes, elapsed_seconds = divmod(elapsed_time.seconds, 60)
+    status_text = (
+        f"<i><b>{download.name}</b></i>\n\n"
+        f"<b>Task By {message.from_user.first_name}</b>  ( #ID{user_id} )\n"
+        f"┠ <b>Status</b> → Completed\n"
+        f"┠ <b>Time Taken</b> → {elapsed_minutes}m{elapsed_seconds}s\n"
+        f"┖ <b>Engine</b> → Aria2 v1.37.0\n"
+    )
+    await update_status_message(status_message, status_text)
+    if not file_path or not os.path.exists(file_path):
+        await message.reply(f"❌ File not found: {file_path}")
         return
 
-    # --- Upload the file ---
+    file_size = os.path.getsize(file_path)
+    caption = f"<b>{download.name}</b>\n"
+    ext = os.path.splitext(file_path)[1].lower()
     try:
-        if ext in [".mp4", ".mkv", ".mov", ".avi"] and file_size > SPLIT_SIZE:
-            split_files = await split_video_with_ffmpeg(file_path, os.path.splitext(file_path)[0], SPLIT_SIZE)
-            for i, part in enumerate(split_files):
-                part_caption = f"{caption}\n\nPart {i+1}/{len(split_files)}"
+        if ext in [".mp4", ".mkv", ".mov", ".avi"]:
+            if file_size > SPLIT_SIZE:
+                split_files = await split_video_with_ffmpeg(file_path, os.path.splitext(file_path)[0], SPLIT_SIZE)
+                for i, part in enumerate(split_files):
+                    part_caption = f"{caption}\n\nPart {i+1}/{len(split_files)}"
+                    upload_id = uuid.uuid4().hex
+                    msg = await message.reply_document(
+                        part,
+                        caption=part_caption,
+                        progress=upload_progress,
+                        progress_args=(status_message, download.name, message.from_user.first_name, user_id, upload_id)
+                    )
+                    await message._client.send_document(Var.LOG_CHANNEL, msg.document.file_id, caption=part_caption)
+                    os.remove(part)
+            else:
                 upload_id = uuid.uuid4().hex
+                part_caption = caption
                 msg = await message.reply_document(
-                    part,
-                    caption=part_caption,
+                    file_path,
+                    caption=caption,
                     progress=upload_progress,
                     progress_args=(status_message, download.name, message.from_user.first_name, user_id, upload_id)
                 )
                 await message._client.send_document(Var.LOG_CHANNEL, msg.document.file_id, caption=part_caption)
-                os.remove(part)
         else:
             upload_id = uuid.uuid4().hex
+            part_caption = caption 
             msg = await message.reply_document(
                 file_path,
                 caption=caption,
                 progress=upload_progress,
                 progress_args=(status_message, download.name, message.from_user.first_name, user_id, upload_id)
             )
-            await message._client.send_document(Var.LOG_CHANNEL, msg.document.file_id, caption=caption)
-
+            await message._client.send_document(Var.LOG_CHANNEL, msg.document.file_id, caption=part_caption)
         LOGS.info(f"📤 Sent file to user: {file_path}")
         await status_message.delete()
     except Exception as e:
         LOGS.error(f"❌ Failed to send file: {e}")
         await message.reply(f"❌ Failed to send file: {e}")
-
 
 async def split_video_with_ffmpeg(input_path, output_prefix, split_size):
     try:
