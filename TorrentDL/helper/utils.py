@@ -204,16 +204,17 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
     target_extensions = [".mkv", ".mp4", ".avi", ".mov"]
     file_path = None
     for path in file_paths:
+        path = str(path)
         if any(path.lower().endswith(ext) for ext in target_extensions):
             if os.path.exists(path):
                 file_path = path
                 break
         # Check directories
         if os.path.isdir(path):
-            for root, _, files in os.walk(path):
+            for root, _, files in os.walk(str(path)):
                 for file in files:
                     if any(file.lower().endswith(ext) for ext in target_extensions):
-                        full_path = os.path.join(root, file)
+                        full_path = os.path.join(str(root), file)
                         if os.path.exists(full_path):
                             file_path = full_path
                             break
