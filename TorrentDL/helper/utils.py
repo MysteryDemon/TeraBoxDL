@@ -33,6 +33,14 @@ def stream_aria2_logs(process):
 def generate_download_id():
     return uuid.uuid4().hex[:16]
 
+def get_torrent_metadata_name(torrent_path):
+    try:
+        info = lt.torrent_info(torrent_path)
+        return info.name() 
+    except Exception as e:
+        LOGS.error(f"Failed to read torrent metadata: {e}")
+        return None
+
 def start_aria2():
     if not is_aria2_running():
         LOGS.info("🔄 Starting aria2c with logging...")
@@ -95,7 +103,7 @@ def add_download(url: str, output_path: str = None, headers: dict = None, use_cl
         urllib.request.urlretrieve(url, temp_torrent)
         download = aria2.add_torrent(temp_torrent, options=options)
         if download.files:
-            metadata_name = os.path.basename(download.files[0].path)
+            metadata_name = get_torrent_metadata_name(torrent_file)
             if use_clean_name:
                 options["out"] = clean_torrent_name(metadata_name)
             else:
