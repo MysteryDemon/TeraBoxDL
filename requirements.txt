@@ -7,7 +7,7 @@ dnspython
 motor==3.4.0
 pymongo==4.8.0
 psutil
-truelink 
+telegraph 
 pyrogram
 pycountry
 pyrofork
