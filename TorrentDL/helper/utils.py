@@ -106,6 +106,9 @@ async def wait_for_download(download):
 
 async def update_status_message(status_message, text):
     try:
+        # Only edit if message text is different
+        if getattr(status_message, "text", None) == text:
+            return  # Don't update if text is the same!
         await status_message.edit_text(text)
     except Exception as e:
         LOGS.error(f"Failed to update status message: {e}")
