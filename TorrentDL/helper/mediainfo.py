@@ -1,0 +1,108 @@
+from aiohttp import ClientSession
+from re import search as re_search
+from shlex import split as ssplit
+from aiofiles import open as aiopen
+from aiofiles.os import remove as aioremove, path as aiopath, mkdir
+from os import path as ospath, getcwd
+from pyrogram.handlers import MessageHandler 
+from pyrogram.filters import command
+from pyrogram import Client, filters, enums
+from bot import bot
+from __init__ import LOGGER
+from helpers.telegraph_helper import telegraph
+from helpers.utils import srm
+from helpers.ffmpeg_helper import cmd_exec
+
+
+async def gen_mediainfo(client, message, link=None, media=None, mmsg=None):
+    temp_send = await client.send_message(chat_id=message.chat.id,
+                                          text='<b>Generating MediaInfo...</b>',
+                                          reply_to_message_id=message.id,
+                                          disable_web_page_preview=False
+                                         )
+    try:
+        path = "Mediainfo/"
+        if not await aiopath.isdir(path):
+            await mkdir(path)
+        if link:
+            filename = re_search(".+/(.+)", link).group(1)
+            des_path = ospath.join(path, filename)
+            headers = {"user-agent":"Mozilla/5.0 (Linux; Android 12; 2201116PI) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Mobile Safari/537.36"}
+            async with ClientSession() as session:
+                async with session.get(link, headers=headers) as response:
+                    async with aiopen(des_path, "wb") as f:
+                        async for chunk in response.content.iter_chunked(10000000):
+                            await f.write(chunk)
+                            break
+        elif media:
+            des_path = ospath.join(path, media.file_name)
+            if media.file_size <= 50000000:
+                await mmsg.download(ospath.join(getcwd(), des_path))
+            else:
+                async for chunk in bot.stream_media(media, limit=5):
+                    async with aiopen(des_path, "ab") as f:
+                        await f.write(chunk)
+        stdout, _, _ = await cmd_exec(ssplit(f'mediainfo "{des_path}"'))
+        tc = f"<h4>📌 {ospath.basename(des_path)}</h4><br><br>"
+        if len(stdout) != 0:
+            tc += parseinfo(stdout)
+    except Exception as e:
+        LOGGER.error(e, exc_info=True)
+        await temp_send.edit(f"MediaInfo Stopped due to {str(e)}")
+    finally:
+        await aioremove(des_path)
+    link_id = (await telegraph.create_page(title='MediaInfo X', content=tc))["path"]
+    await temp_send.edit(f"<b>MediaInfo:</b>\n\n➲ <b>Link :</b> https://graph.org/{link_id}", disable_web_page_preview=False)
+
+
+section_dict = {'General': '🗒', 'Video': '🎞', 'Audio': '🔊', 'Text': '🔠', 'Menu': '🗃'}
+def parseinfo(out):
+    tc = ''
+    trigger = False
+    for line in out.split('\n'):
+        for section, emoji in section_dict.items():
+            if line.startswith(section):
+                trigger = True
+                if not line.startswith('General'):
+                    tc += '</pre><br>'
+                tc += f"<h4>{emoji} {line.replace('Text', 'Subtitle')}</h4>"
+                break
+        if trigger:
+            tc += '<br><pre>'
+            trigger = False
+        else:
+            tc += line + '\n'
+    tc += '</pre><br>'
+    return tc
+
+@Client.on_message(filters.command(["mi", "media_info"]))
+async def mediainfo(client, message):
+    rply = message.reply_to_message
+    help_msg = "<b>By replying to media:</b>"
+    help_msg += f"\n<code>/mi or /media_info" + " {media}" + "</code>"
+    help_msg += "\n\n<b>By reply/sending download link:</b>"
+    help_msg += f"\n<code>/mi or /media_info" + " {link}" + "</code>"
+    if len(message.command) > 1 or rply and rply.text:
+        link = rply.text if rply else message.command[1]
+        return await gen_mediainfo(client, message, link)
+    elif rply:
+        if file := next(
+            (
+                i
+                for i in [
+                    rply.document,
+                    rply.video,
+                    rply.audio,
+                    rply.voice,
+                    rply.animation,
+                    rply.video_note,
+                ]
+                if i is not None
+            ),
+            None,
+        ):
+            return await gen_mediainfo(client, message, None, file, rply)
+        else:
+            return await srm(client, message, help_msg)
+    else:
+        return await srm(client, message, help_msg)
