@@ -43,9 +43,9 @@ def start_aria2():
                 "--disable-ipv6",
                 "--max-connection-per-server=16",
                 "--rpc-allow-origin-all=true",
-                "--force-sequential",
                 "--allow-overwrite=true",
-                "--continue=false",
+                "--continue=true", 
+                "--bt-enable-lpd=true",
                 "--daemon=false",
                 "--console-log-level=notice",
                 "--summary-interval=1"
@@ -57,7 +57,7 @@ def start_aria2():
         time.sleep(2)
     else:
         LOGS.info("ℹ️ aria2c is already running.")
-
+        
 def add_download(url: str, output_path: str, headers: dict = None):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     options = {
@@ -69,6 +69,9 @@ def add_download(url: str, output_path: str, headers: dict = None):
         "enable-http-pipelining": "true",
         "auto-file-renaming": "false",
         "allow-overwrite": "true",
+        "bt-enable-lpd": "true", 
+        "bt-metadata-only": "false", 
+        "bt-save-metadata": "true" 
     }
     if headers:
         options["header"] = [f"{k}: {v}" for k, v in headers.items()]
@@ -202,6 +205,11 @@ async def handle_download_and_send(message, download, user_id, LOGS, status_mess
         await message.reply(f"❌ File not found: {file_path}")
         return
 
+    file_paths = [f.path for f in completed.files] if completed.files else []
+    if not file_paths:
+        await message.reply(f"❌ No files found for download: {download.name}")
+        return
+        
     file_size = os.path.getsize(file_path)
     caption = f"<b>{download.name}</b>\n"
     ext = os.path.splitext(file_path)[1].lower()
