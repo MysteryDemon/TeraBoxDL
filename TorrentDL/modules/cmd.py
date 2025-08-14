@@ -94,9 +94,9 @@ async def set_cb(client, query: CallbackQuery):
 async def mediainfo(client, message):
     rply = message.reply_to_message
     help_msg = "<b>By replying to media:</b>"
-    help_msg += f"\n<code>/mi or /media_info" + " {media}" + "</code>"
+    help_msg += f"\n<code>/mi or /mediainfo" + " {media}" + "</code>"
     help_msg += "\n\n<b>By reply/sending download link:</b>"
-    help_msg += f"\n<code>/mi or /media_info" + " {link}" + "</code>"
+    help_msg += f"\n<code>/mi or /mediainfo" + " {link}" + "</code>"
     if len(message.command) > 1 or rply and rply.text:
         link = rply.text if rply else message.command[1]
         return await gen_mediainfo(client, message, link)
@@ -104,13 +104,7 @@ async def mediainfo(client, message):
         if file := next(
             (
                 i
-                for i in [
-                    rply.document,
-                    rply.video,
-                    rply.audio,
-                    rply.voice,
-                    rply.animation,
-                    rply.video_note,
+                for i in [rply.document, rply.video, rply.audio, rply.voice, rply.animation, rply.video_note,
                 ]
                 if i is not None
             ),
